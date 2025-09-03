@@ -1,0 +1,40 @@
+# Project initialization matrix (no caching yet)
+
+java_toolchain:
+  # Minecraft 1.20.5+ needs Java 21; 1.18–1.20.4 use Java 17
+  # Source: Forge/Fabric docs (Java 21 for 1.21+)
+  ">=1.20.5": 21
+  "<=1.20.4": 17
+
+frameworks:
+  fabric:
+    starter: "template"     # use Fabric template/example mod
+    smoke_task: "build"     # headless check after scaffolding
+  forge:
+    starter: "mdk"          # use Forge MDK
+    smoke_task: ":runData"  # validate data/resources
+  neoforge:
+    starter: "mdk"          # use NeoForge MDK
+    smoke_task: ":runData"
+
+pack_format:
+  # DO NOT hardcode numbers here; fetch at runtime from a reliable source.
+  # Strategy options: "external" (preferred), "fallback-only"
+  strategy: "external"
+  source:
+    # Use one of:
+    # - npm package "pack-format" (fast, kept current)
+    # - Minecraft Wiki (manual lookup)
+    prefer: "npm:pack-format"
+    fallback: "wiki"
+  # If offline or source unavailable, you may provide minimal fallbacks here.
+  # Keep empty by default to avoid staleness.
+  fallback:
+    resource: {}
+    data: {}
+
+defaults:
+  # Placeholder values your initializer can override per project
+  group: "com.example"
+  package: "com.example.mod"
+  modid: "examplemod"

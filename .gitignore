@@ -1,1 +1,6 @@
 *.DS_Store
+./backend/rag/store/chroma_db_custom_model
+.venv/
+runs/
+workspace/
+.env
