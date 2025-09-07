@@ -152,18 +152,16 @@ _KOTLIN_BLOCK = (
 
 
 def patch_toolchain(workspace: Path | str, java_version: int, group: Optional[str] = None) -> dict:
-    """Ensure Gradle uses the given Java toolchain (and group if provided).
-
-    Returns a summary dict with per-file PatchResult-like info.
-    """
+    """Ensure Gradle uses the given Java toolchain (and group if provided)."""
+    from backend.agent.tools.storage_layer import STORAGE as storage
     ws = Path(workspace)
     results: list[PatchResult] = []
 
     for fname, kotlin in (("build.gradle", False), ("build.gradle.kts", True)):
         p = ws / fname
-        if not p.exists():
+        if not storage.exists(p):
             continue
-        txt = p.read_text(encoding="utf-8", errors="ignore")
+        txt = storage.read_text(p, encoding="utf-8", errors="ignore")
         original = txt
 
         # Replace existing languageVersion setting if present
@@ -229,7 +227,7 @@ def patch_toolchain(workspace: Path | str, java_version: int, group: Optional[st
                 ensured_group = True
 
         if txt != original:
-            p.write_text(txt, encoding="utf-8")
+            storage.write_text(p, txt, encoding="utf-8")
 
         results.append(PatchResult(file=p, inserted=inserted, replaced=replaced, ensured_group=ensured_group))
 

@@ -63,21 +63,16 @@ def _sanitize_token(token: str) -> str:
 
 
 def create(runs_root: Path | str, modid: str, framework: str, mc_version: str) -> Path:
-    """Create a new workspace directory under runs_root.
-
-    The directory name is timestamped and embeds modid/framework/version to make
-    it human-readable and unique:
-        <runs_root>/<YYYYMMDD_HHMMSS>_<modid>_<framework>_<mc_version>/
-
-    Returns the workspace Path. Raises FileExistsError only if an improbable
-    name collision occurs.
-    """
+    """Create a new workspace directory under runs_root via storage."""
+    from backend.agent.tools.storage_layer import STORAGE as storage
     runs_root = Path(runs_root)
-    runs_root.mkdir(parents=True, exist_ok=True)
+    storage.ensure_dir(runs_root)
 
     name = f"{_timestamp()}_{_sanitize_token(modid)}_{_sanitize_token(framework)}_{_sanitize_token(mc_version)}"
     ws = runs_root / name
-    ws.mkdir(parents=True, exist_ok=False)
+    if storage.exists(ws):
+        raise FileExistsError(str(ws))
+    storage.ensure_dir(ws)
     return ws
 
 
@@ -99,43 +94,36 @@ def _ensure_executable(path: Path) -> None:
 
 
 def copy_from_extracted(extracted_dir: Path | str, workspace_dir: Path | str) -> None:
-    """Copy the extracted starter files into the workspace.
+    """Copy the extracted starter files into the workspace using storage.
 
     - Skips VCS/system junk ('.git', '.github', '__MACOSX')
     - Preserves file metadata where possible
     - Ensures Gradle wrapper scripts are executable on POSIX
     - Does not delete anything already in workspace_dir
     """
+    from backend.agent.tools.storage_layer import STORAGE as storage
     src = Path(extracted_dir)
     dst = Path(workspace_dir)
 
-    if not src.exists() or not src.is_dir():
+    if not storage.exists(src) or not storage.is_dir(src):
         raise FileNotFoundError(f"extracted_dir not found or not a directory: {src}")
-    if not dst.exists() or not dst.is_dir():
+    if not storage.exists(dst) or not storage.is_dir(dst):
         raise FileNotFoundError(f"workspace_dir not found or not a directory: {dst}")
 
     for item in _iter_top_level_entries(src):
         target = dst / item.name
         if item.is_dir():
-            if target.exists():
-                # Merge copy: copy contents into existing directory
-                for child in item.rglob('*'):
-                    rel = child.relative_to(item)
-                    t = target / rel
-                    if child.is_dir():
-                        t.mkdir(parents=True, exist_ok=True)
-                    else:
-                        t.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(child, t)
+            if storage.exists(target):
+                storage.merge_tree(item, target)
             else:
-                shutil.copytree(item, target)
+                storage.copy_tree(item, target)
         else:
-            shutil.copy2(item, target)
+            storage.copy_file(item, target)
 
     # Ensure gradle wrapper is usable on POSIX
     gradlew = dst / "gradlew"
-    if gradlew.exists():
-        _ensure_executable(gradlew)
+    if storage.exists(gradlew):
+        storage.set_executable(gradlew)
     # Windows batch is fine as-is; presence optional
 
 

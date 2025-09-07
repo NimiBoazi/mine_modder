@@ -33,9 +33,9 @@ from backend.core.models import Framework
 from backend.agent.tools.workspace import create as ws_create, copy_from_extracted
 from backend.agent.tools.placeholders import apply_placeholders
 from backend.agent.tools.java_toolchain import java_for, patch_toolchain
-# <-- Import your new function
 from backend.agent.tools.repositories import patch_settings_repositories
 from backend.agent.tools.gradle import smoke_build
+from backend.agent.tools.storage_layer import STORAGE as storage
 
 GREEN = "\x1b[32m"
 RED = "\x1b[31m"
@@ -75,12 +75,13 @@ def _do_one(framework: str, mc_version: str, modid: str, group: str, package: st
         return 2
 
     dl_dir = downloads_root / framework / mc_version
-    dl_dir.mkdir(parents=True, exist_ok=True)
+    storage.ensure_dir(dl_dir)
     dest_zip = dl_dir / pr.filename
 
     try:
         download(pr.url, dest_zip)
-        _print_step(StepResult("download", True, f"→ {dest_zip} ({dest_zip.stat().st_size} bytes)"))
+        size = len(storage.read_bytes(dest_zip)) if storage.exists(dest_zip) else 0
+        _print_step(StepResult("download", True, f"→ {dest_zip} ({size} bytes)"))
     except Exception as e:
         _print_step(StepResult("download", False, str(e)))
         return 2

@@ -29,11 +29,12 @@ dependencyResolutionManagement {
 """
 
 def patch_settings_repositories(ws: Path) -> str:
+    from backend.agent.tools.storage_layer import STORAGE as storage
     groovy = ws / "settings.gradle"
     kts = ws / "settings.gradle.kts"
 
-    if groovy.exists():
-        text = groovy.read_text()
+    if storage.exists(groovy):
+        text = storage.read_text(groovy)
         if "dependencyResolutionManagement" in text:
             # Force PREFER_PROJECT if a mode is already present
             text = re.sub(
@@ -46,12 +47,12 @@ def patch_settings_repositories(ws: Path) -> str:
                 text += "\n" + FORGE_SETTINGS_GROOVY
         else:
             text += ("\n" if text and not text.endswith("\n") else "") + FORGE_SETTINGS_GROOVY
-        groovy.write_text(text)
+        storage.write_text(groovy, text)
         return "settings: dependencyResolutionManagement => PREFER_PROJECT (groovy)"
 
     # If a Kotlin settings file exists, patch that instead
-    if kts.exists():
-        text = kts.read_text()
+    if storage.exists(kts):
+        text = storage.read_text(kts)
         if "dependencyResolutionManagement" in text:
             text = re.sub(
                 r"repositoriesMode\.set\(RepositoriesMode\.\w+\)",
@@ -62,11 +63,11 @@ def patch_settings_repositories(ws: Path) -> str:
                 text += "\n" + FORGE_SETTINGS_KTS
         else:
             text += ("\n" if text and not text.endswith("\n") else "") + FORGE_SETTINGS_KTS
-        kts.write_text(text)
+        storage.write_text(kts, text)
         return "settings: dependencyResolutionManagement => PREFER_PROJECT (kts)"
 
     # If there is no settings file at all, create Groovy by default
-    groovy.write_text(FORGE_SETTINGS_GROOVY)
+    storage.write_text(groovy, FORGE_SETTINGS_GROOVY)
     return "settings: created dependencyResolutionManagement => PREFER_PROJECT (groovy)"
 
 

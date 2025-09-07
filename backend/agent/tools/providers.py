@@ -59,17 +59,20 @@ def resolve_url(framework: Framework, mc_version: str) -> ProviderResult:
 
 
 def download(url: str, dest_path: Path, *, timeout: int = 120) -> None:
-    """Stream download to disk with a small buffer and basic error surfacing.
+    """Stream download via storage with a small buffer and basic error surfacing.
     Overwrites dest_path if it exists.
     """
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    from backend.agent.tools.storage_layer import STORAGE as storage
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with contextlib.closing(urllib.request.urlopen(req, timeout=timeout)) as r, open(dest_path, "wb") as f:
-            chunk = r.read(8192)
-            while chunk:
-                f.write(chunk)
-                chunk = r.read(8192)
+        with contextlib.closing(urllib.request.urlopen(req, timeout=timeout)) as r:
+            storage.ensure_parent_dir(dest_path)
+            with storage.open_for_write_bytes(dest_path) as f:
+                while True:
+                    chunk = r.read(8192)
+                    if not chunk:
+                        break
+                    f.write(chunk)
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"HTTP {e.code} when downloading {url}") from e
     except urllib.error.URLError as e:
