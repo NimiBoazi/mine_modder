@@ -1,0 +1,7 @@
+# Paths configuration for MineModder agent
+# You can change these to relocate where workspaces and downloads are created.
+# They are consumed by backend.agent.providers.paths.build_paths_settings().
+
+runs_root: "runs"
+downloads_root: "runs/_downloads"
+

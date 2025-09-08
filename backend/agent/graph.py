@@ -5,6 +5,24 @@ from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableLambda
 
 from .state import AgentState
+import os
+from dotenv import load_dotenv, find_dotenv
+from pathlib import Path
+from backend.core.models import Framework
+from .tools.providers import resolve_url, download
+from .tools.archive import extract_archive
+from .tools.workspace import create as ws_create, copy_from_extracted
+from .tools.placeholders import apply_placeholders
+from .tools.java_toolchain import java_for, patch_toolchain
+from .tools.repositories import (
+    patch_settings_repositories,
+    patch_forge_build_gradle_for_lwjgl_macos_patch,
+)
+from .tools.gradle import smoke_build
+from .tools.storage_layer import STORAGE as storage
+from .utils.infer import slugify_modid, derive_group_from_authors, make_package, truncate_desc
+from .providers.llm import build_name_desc_extractor
+
 
 
 # ---------------------
@@ -60,10 +78,136 @@ def route_workspace(state: AgentState) -> str:
     return "init_subgraph" if state.get("_needs_init") else "next_task"
 
 
+def make_infer_init_params_node(name_desc_chain=None):
+    def infer_init_params(state: AgentState) -> AgentState:
+        """Infer name/description via injected chain, then derive modid/group/package/version/timeout.
+        Expects framework, mc_version, and authors from frontend.
+        """
+
+        user_prompt = state.get("user_input") or ""
+        name = state.get("display_name")
+        desc = state.get("description")
+
+        # Normalize authors: accept single string or list
+        authors_val = state.get("authors") or state.get("author")
+        if isinstance(authors_val, str):
+            authors = [authors_val.strip()] if authors_val.strip() else []
+            state["authors"] = authors
+        elif isinstance(authors_val, list):
+            state["authors"] = [str(a).strip() for a in authors_val if str(a).strip()]
+        else:
+            state["authors"] = []
+
+        # LLM inference only if missing
+        if not name or not desc:
+            try:
+                if name_desc_chain is not None:
+                    out = name_desc_chain.invoke(user_prompt)
+                    name = name or out.get("name")
+                    desc = desc or out.get("description")
+                else:
+                    raise RuntimeError("No name/desc chain configured")
+            except Exception:
+                # Safe fallbacks if model unavailable
+                name = name or "My Mod"
+                desc = desc or "A Minecraft mod."
+
+        desc = truncate_desc(desc or "")
+        state["display_name"] = name
+        state["description"] = desc
+
+        # Derived
+        modid = slugify_modid(name)
+        authors = state.get("authors") or []
+        group = derive_group_from_authors(authors)
+        package = make_package(group, modid)
+
+        state["modid"] = modid
+        state["group"] = group
+        state["package"] = package
+        state.setdefault("version", "0.1.0")
+        state.setdefault("timeout", 1800)
+
+        state.setdefault("events", []).append({"node": "infer_init_params", "ok": True, "modid": modid, "group": group, "package": package})
+        return state
+    return infer_init_params
+
+
+def route_after_clarify(state: AgentState) -> str:
+    return "await_user" if state.get("_halt") else "ensure_workspace"
+
+
+def await_user(state: AgentState) -> AgentState:
+    qs = (state.get("awaiting_user") or {}).get("questions", [])
+    state["summary"] = {"awaiting": qs}
+    state.setdefault("events", []).append({"node": "await_user", "ok": True, "questions": qs})
+    return state
+
+
+
 def init_subgraph(state: AgentState) -> AgentState:
-    # Stub: set a fake workspace so downstream nodes can run
-    state["workspace_path"] = state.get("workspace_path") or "runs/_workspace_stub"
-    state.setdefault("events", []).append({"node": "init_subgraph", "ok": True, "workspace_path": state["workspace_path"]})
+    """Run the real initialization pipeline using inferred params."""
+
+    framework = state.get("framework")
+    mc_version = state.get("mc_version")
+    modid = state.get("modid")
+    group = state.get("group")
+    package = state.get("package")
+    display_name = state.get("display_name")
+    description = state.get("description")
+    authors = state.get("authors") or []
+    timeout = int(state.get("timeout", 1800))
+
+    runs_root = Path(state.get("runs_root") or "runs")
+    downloads_root = Path(state.get("downloads_root") or "runs/_downloads")
+
+    # 1) Resolve + download
+    fw_enum = Framework[framework.upper()]
+    pr = resolve_url(fw_enum, mc_version)
+    dl_dir = downloads_root / framework / mc_version
+    from .tools.storage_layer import STORAGE as storage
+    storage.ensure_dir(dl_dir)
+    dest_zip = dl_dir / pr.filename
+    download(pr.url, dest_zip)
+
+    # 2) Extract
+    extracted_dir = dl_dir / "extracted"
+    root = extract_archive(dest_zip, extracted_dir)
+
+    # 3) Create workspace and copy
+    ws = ws_create(runs_root, modid=modid, framework=framework, mc_version=mc_version)
+    copy_from_extracted(root, ws)
+
+    # 4) Placeholders
+    apply_placeholders(
+        ws, framework,
+        modid=modid,
+        group=group,
+        package=package,
+        mc_version=mc_version,
+        display_name=display_name,
+        description=description,
+        authors=authors or None,
+    )
+
+    # 5) Toolchain
+    jv = java_for(mc_version)
+    patch_toolchain(ws, jv, group=group)
+
+    # 6) Repositories patch (idempotent)
+    # Matches backend/tests/init_e2e.py behavior
+    patch_settings_repositories(ws)
+
+    # 6b) Forge-only LWJGL macOS patch on build.gradle (idempotent)
+    if framework == "forge":
+        patch_forge_build_gradle_for_lwjgl_macos_patch(ws)
+
+    # 7) Gradle smoke build
+    res = smoke_build(framework, ws, task_override=None, timeout=timeout)
+
+    state["workspace_path"] = str(ws)
+    state.setdefault("artifacts", {})["gradle_smoke"] = res
+    state.setdefault("events", []).append({"node": "init_subgraph", "ok": bool(res.get("ok")), "workspace_path": str(ws)})
     return state
 
 
@@ -145,8 +289,12 @@ def handle_result(state: AgentState) -> AgentState:
 
 
 def decide_after_result(state: AgentState) -> str:
-    # For now always continue; later honor fail-fast or user policy
-    return "next_task"
+    # Continue if tasks remain; otherwise finish
+    plan = state.get("plan") or {}
+    tasks = plan.get("tasks") or []
+    cursor = int(plan.get("cursor", 0))
+    no_more = state.get("_no_tasks_left") or (cursor >= len(tasks))
+    return "summarize_and_finish" if no_more else "next_task"
 
 
 def summarize_and_finish(state: AgentState) -> AgentState:
@@ -163,13 +311,23 @@ def summarize_and_finish(state: AgentState) -> AgentState:
 
 
 def build_graph():
+
+    # Load .env (repo root or backend/.env)
+    BACKEND_ENV = Path(__file__).resolve().parents[1] / ".env"  # points to backend/.env
+    load_dotenv(BACKEND_ENV, override=False)
+
     g = StateGraph(AgentState)
+
+    # Build providers once (composition root)
+    name_desc_extractor = build_name_desc_extractor()
 
     # Core nodes
     g.add_node("intake", RunnableLambda(intake))
     g.add_node("plan_tasks", RunnableLambda(plan_tasks))
     g.add_node("clarify_params", RunnableLambda(clarify_params))
+    g.add_node("await_user", RunnableLambda(await_user))
     g.add_node("ensure_workspace", RunnableLambda(ensure_workspace))
+    g.add_node("infer_init_params", RunnableLambda(make_infer_init_params_node(name_desc_extractor)))
     g.add_node("init_subgraph", RunnableLambda(init_subgraph))
     g.add_node("next_task", RunnableLambda(next_task))
     g.add_node("handle_result", RunnableLambda(handle_result))
@@ -183,12 +341,21 @@ def build_graph():
     g.add_node("qa_subgraph", RunnableLambda(qa_subgraph))
 
     # Edges
-    g.add_conditional_edges(START, lambda s: "intake")
+    g.add_conditional_edges(START, lambda _s: "intake")
     g.add_edge("intake", "plan_tasks")
-    g.add_conditional_edges("plan_tasks", route_after_plan, {"ensure_workspace": "ensure_workspace"})
-    g.add_edge("clarify_params", "ensure_workspace")  # currently unused path
+    g.add_conditional_edges("plan_tasks", route_after_plan, {
+        "clarify_params": "clarify_params",
+        "ensure_workspace": "ensure_workspace",
+    })
+    g.add_conditional_edges("clarify_params", route_after_clarify, {
+        "await_user": "await_user",
+        "ensure_workspace": "ensure_workspace",
+    })
 
-    g.add_conditional_edges("ensure_workspace", route_workspace, {
+    # After we know required frontend params, infer init params from prompt
+    g.add_edge("ensure_workspace", "infer_init_params")
+
+    g.add_conditional_edges("infer_init_params", route_workspace, {
         "init_subgraph": "init_subgraph",
         "next_task": "next_task",
     })
@@ -209,6 +376,7 @@ def build_graph():
 
     g.add_conditional_edges("handle_result", decide_after_result, {
         "next_task": "next_task",
+        "summarize_and_finish": "summarize_and_finish",
     })
 
     g.add_edge("summarize_and_finish", END)
