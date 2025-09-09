@@ -64,7 +64,7 @@ def _sanitize_token(token: str) -> str:
 
 def create(runs_root: Path | str, modid: str, framework: str, mc_version: str) -> Path:
     """Create a new workspace directory under runs_root via storage."""
-    from backend.agent.tools.storage_layer import STORAGE as storage
+    from backend.agent.wrappers.storage import STORAGE as storage
     runs_root = Path(runs_root)
     storage.ensure_dir(runs_root)
 
@@ -101,7 +101,7 @@ def copy_from_extracted(extracted_dir: Path | str, workspace_dir: Path | str) ->
     - Ensures Gradle wrapper scripts are executable on POSIX
     - Does not delete anything already in workspace_dir
     """
-    from backend.agent.tools.storage_layer import STORAGE as storage
+    from backend.agent.wrappers.storage import STORAGE as storage
     src = Path(extracted_dir)
     dst = Path(workspace_dir)
 

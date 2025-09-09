@@ -9,17 +9,17 @@ import os
 from dotenv import load_dotenv, find_dotenv
 from pathlib import Path
 from backend.core.models import Framework
-from .tools.providers import resolve_url, download
-from .tools.archive import extract_archive
-from .tools.workspace import create as ws_create, copy_from_extracted
-from .tools.placeholders import apply_placeholders
-from .tools.java_toolchain import java_for, patch_toolchain
-from .tools.repositories import (
+from .tools.init.providers import resolve_url, download
+from .tools.init.archive import extract_archive
+from .tools.init.workspace import create as ws_create, copy_from_extracted
+from .tools.init.placeholders import apply_placeholders
+from .tools.init.java_toolchain import java_for, patch_toolchain
+from .tools.init.repositories import (
     patch_settings_repositories,
     patch_forge_build_gradle_for_lwjgl_macos_patch,
 )
-from .tools.gradle import smoke_build
-from .tools.storage_layer import STORAGE as storage
+from .tools.init.gradle import smoke_build
+from .wrappers.storage import STORAGE as storage
 from .utils.infer import slugify_modid, derive_group_from_authors, make_package, truncate_desc
 from .providers.llm import build_name_desc_extractor
 
@@ -165,7 +165,7 @@ def init_subgraph(state: AgentState) -> AgentState:
     fw_enum = Framework[framework.upper()]
     pr = resolve_url(fw_enum, mc_version)
     dl_dir = downloads_root / framework / mc_version
-    from .tools.storage_layer import STORAGE as storage
+
     storage.ensure_dir(dl_dir)
     dest_zip = dl_dir / pr.filename
     download(pr.url, dest_zip)

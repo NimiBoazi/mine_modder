@@ -1,12 +1,13 @@
 """
 Storage abstraction for file operations used by the initialization pipeline.
 
-Usage pattern in pipeline modules:
-    from backend.agent.tools.storage_layer import STORAGE
-    # then use STORAGE for all file/path operations
+This module is the canonical location for the storage backend (LocalStorage by
+default). Other modules should import from here:
 
-To switch backends later (e.g., to S3/DB), change STORAGE below to another
-implementation; pipeline modules stay unchanged.
+    from backend.agent.wrappers.storage import STORAGE
+
+You can later swap `STORAGE` to a different implementation without changing call
+sites.
 """
 from __future__ import annotations
 

@@ -153,7 +153,7 @@ _KOTLIN_BLOCK = (
 
 def patch_toolchain(workspace: Path | str, java_version: int, group: Optional[str] = None) -> dict:
     """Ensure Gradle uses the given Java toolchain (and group if provided)."""
-    from backend.agent.tools.storage_layer import STORAGE as storage
+    from backend.agent.wrappers.storage import STORAGE as storage
     ws = Path(workspace)
     results: list[PatchResult] = []
 
@@ -245,3 +245,5 @@ def patch_toolchain(workspace: Path | str, java_version: int, group: Optional[st
 
 
 __all__ = ["java_for", "patch_toolchain"]
+
+

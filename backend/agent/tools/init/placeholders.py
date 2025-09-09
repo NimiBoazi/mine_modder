@@ -77,7 +77,7 @@ def apply_placeholders(
     license_name: str | None = None,
     version: str | None = None,
 ) -> dict:
-    from backend.agent.tools.storage_layer import STORAGE as storage
+    from backend.agent.wrappers.storage import STORAGE as storage
     ws = Path(workspace)
     fw = framework.strip().lower()
 
@@ -315,7 +315,7 @@ def _touch_fabric_manifest(
     license_name: Optional[str],
     version: Optional[str],
 ) -> set[str]:
-    from backend.agent.tools.storage_layer import STORAGE as storage
+    from backend.agent.wrappers.storage import STORAGE as storage
     p = ws / "src" / "main" / "resources" / "fabric.mod.json"
     changed: set[str] = set()
     if not storage.exists(p):

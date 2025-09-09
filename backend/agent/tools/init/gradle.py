@@ -93,7 +93,7 @@ def _gradlew_path(workspace: Path) -> Path:
 
 def _ensure_executable(p: Path) -> None:
     try:
-        from backend.agent.tools.storage_layer import STORAGE as storage
+        from backend.agent.wrappers.storage import STORAGE as storage
         storage.set_executable(p)
     except Exception:
         pass
@@ -197,7 +197,7 @@ def smoke_build(
     log_dir = _log_dir(ws)
     log_path = log_dir / f"smoke_{fw}_{chosen_task.strip(':').replace(':','_')}.log"
     try:
-        from backend.agent.tools.storage_layer import STORAGE as storage
+        from backend.agent.wrappers.storage import STORAGE as storage
         storage.ensure_dir(log_dir)
         payload = (last_out or "")
         if last_err and last_err not in (last_out or ""):

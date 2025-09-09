@@ -29,7 +29,7 @@ dependencyResolutionManagement {
 """
 
 def patch_settings_repositories(ws: Path) -> str:
-    from backend.agent.tools.storage_layer import STORAGE as storage
+    from backend.agent.wrappers.storage import STORAGE as storage
     groovy = ws / "settings.gradle"
     kts = ws / "settings.gradle.kts"
 

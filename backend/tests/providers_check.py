@@ -38,7 +38,7 @@ from typing import Iterable, List
 
 # Project imports
 try:
-    from backend.agent.tools import providers
+    from backend.agent.tools.init import providers
     from backend.core.models import Framework
 except Exception as e:  # pragma: no cover
     sys.stderr.write("\nERROR: Could not import providers or Framework.\n")

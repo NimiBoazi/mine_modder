@@ -27,15 +27,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List
 
-from backend.agent.tools.providers import resolve_url, download
-from backend.agent.tools.archive import extract_archive
+from backend.agent.tools.init.providers import resolve_url, download
+from backend.agent.tools.init.archive import extract_archive
 from backend.core.models import Framework
-from backend.agent.tools.workspace import create as ws_create, copy_from_extracted
-from backend.agent.tools.placeholders import apply_placeholders
-from backend.agent.tools.java_toolchain import java_for, patch_toolchain
-from backend.agent.tools.repositories import patch_settings_repositories
-from backend.agent.tools.gradle import smoke_build
-from backend.agent.tools.storage_layer import STORAGE as storage
+from backend.agent.tools.init.workspace import create as ws_create, copy_from_extracted
+from backend.agent.tools.init.placeholders import apply_placeholders
+from backend.agent.tools.init.java_toolchain import java_for, patch_toolchain
+from backend.agent.tools.init.repositories import patch_settings_repositories
+from backend.agent.tools.init.gradle import smoke_build
+from backend.agent.wrappers.storage import STORAGE as storage
 
 GREEN = "\x1b[32m"
 RED = "\x1b[31m"
@@ -141,7 +141,7 @@ def _do_one(framework: str, mc_version: str, modid: str, group: str, package: st
     # 6b) Forge-only: let freetype resolve from Forge maven (macOS patched classifier)
     try:
         if framework == "forge":
-            from backend.agent.tools.repositories import patch_forge_build_gradle_for_lwjgl_macos_patch
+            from backend.agent.tools.init.repositories import patch_forge_build_gradle_for_lwjgl_macos_patch
             msg2 = patch_forge_build_gradle_for_lwjgl_macos_patch(ws)
             _print_step(StepResult("forge_lwjgl_patch", True, msg2))
     except Exception as e:
