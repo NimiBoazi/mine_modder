@@ -1,6 +1,0 @@
-# Block env files from Augment indexing
-.env
-.env.*
-*.env
-*.env.*
-.envrc
