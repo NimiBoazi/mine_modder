@@ -17,8 +17,12 @@ from .tools.init.java_toolchain import java_for, patch_toolchain
 from .tools.init.repositories import (
     patch_settings_repositories,
     patch_forge_build_gradle_for_lwjgl_macos_patch,
+    # enable_parchment_for_forge,
+    # enable_parchment_for_neoforge
 )
 from .tools.init.gradle import smoke_build
+from .tools.init.version import detect_minecraft_version
+
 from .wrappers.storage import STORAGE as storage
 from .utils.infer import slugify_modid, derive_group_from_authors, make_package, truncate_desc
 from .providers.llm import build_name_desc_extractor
@@ -178,29 +182,44 @@ def init_subgraph(state: AgentState) -> AgentState:
     ws = ws_create(runs_root, modid=modid, framework=framework, mc_version=mc_version)
     copy_from_extracted(root, ws)
 
-    # 4) Placeholders
+    # 3b) Detect effective Minecraft version from the MDK workspace (prefer gradle.properties)
+    detected_mc = detect_minecraft_version(ws)
+    # Persist in state and emit an event; this is the single source of truth downstream
+    state["effective_mc_version"] = detected_mc
+    state.setdefault("events", []).append({
+        "node": "resolve_mdk_version", "ok": bool(detected_mc), "version": detected_mc
+    })
+
+    # 4) Placeholders (use detected MC for any version-derived writes)
     apply_placeholders(
         ws, framework,
         modid=modid,
         group=group,
         package=package,
-        mc_version=mc_version,
+        mc_version=detected_mc,
         display_name=display_name,
         description=description,
         authors=authors or None,
     )
 
-    # 5) Toolchain
-    jv = java_for(mc_version)
-    patch_toolchain(ws, jv, group=group)
+    # 5) Toolchain (only if MDK version was detected; no fallback to user value)
+    if detected_mc:
+        jv = java_for(detected_mc)
+        patch_toolchain(ws, jv, group=group)
 
     # 6) Repositories patch (idempotent)
     # Matches backend/tests/init_e2e.py behavior
     patch_settings_repositories(ws)
 
-    # 6b) Forge-only LWJGL macOS patch on build.gradle (idempotent)
+    # 6b) Forge-only LWJGL macOS patch on build.gradle (idempotent) and parchment enablement
     if framework == "forge":
-        patch_forge_build_gradle_for_lwjgl_macos_patch(ws)
+        if detected_mc:
+            # enable_parchment_for_forge(ws, detected_mc)
+            patch_forge_build_gradle_for_lwjgl_macos_patch(ws)
+
+    # elif framework == "neoforge":
+    #     if detected_mc:
+    #         enable_parchment_for_neoforge(ws, detected_mc)
 
     # 7) Gradle smoke build
     res = smoke_build(framework, ws, task_override=None, timeout=timeout)
