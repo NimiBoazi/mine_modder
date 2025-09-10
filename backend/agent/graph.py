@@ -17,8 +17,8 @@ from .tools.init.java_toolchain import java_for, patch_toolchain
 from .tools.init.repositories import (
     patch_settings_repositories,
     patch_forge_build_gradle_for_lwjgl_macos_patch,
-    # enable_parchment_for_forge,
-    # enable_parchment_for_neoforge
+    enable_parchment_for_forge,
+    enable_parchment_for_neoforge
 )
 from .tools.init.gradle import smoke_build
 from .tools.init.version import detect_minecraft_version
@@ -214,12 +214,12 @@ def init_subgraph(state: AgentState) -> AgentState:
     # 6b) Forge-only LWJGL macOS patch on build.gradle (idempotent) and parchment enablement
     if framework == "forge":
         if detected_mc:
-            # enable_parchment_for_forge(ws, detected_mc)
+            enable_parchment_for_forge(ws, detected_mc)
             patch_forge_build_gradle_for_lwjgl_macos_patch(ws)
 
-    # elif framework == "neoforge":
-    #     if detected_mc:
-    #         enable_parchment_for_neoforge(ws, detected_mc)
+    elif framework == "neoforge":
+        if detected_mc:
+            enable_parchment_for_neoforge(ws, detected_mc)
 
     # 7) Gradle smoke build
     res = smoke_build(framework, ws, task_override=None, timeout=timeout)

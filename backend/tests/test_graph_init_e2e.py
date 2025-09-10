@@ -12,9 +12,9 @@ from backend.agent.graph import build_graph
 
 @pytest.mark.slow
 @pytest.mark.parametrize("framework,mc_version", [
-    ("forge", "1.21"),
-    ("fabric", "1.21"),
-    ("neoforge", "1.21"),
+    ("forge", "1.21.1"),
+    ("fabric", "1.21.1"),
+    ("neoforge", "1.21.1"),
 ])
 def test_graph_init_end_to_end_all_frameworks(tmp_path: Path, framework: str, mc_version: str):
     """
