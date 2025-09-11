@@ -1,0 +1,1 @@
+src/main/resources/assets/{{modid}}/textures/item/{{item_id}}.png

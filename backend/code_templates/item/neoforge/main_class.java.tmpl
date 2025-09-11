@@ -1,0 +1,64 @@
+package {{base_package}};
+
+import {{base_package}}.item.ModItems;
+import net.minecraft.world.item.CreativeModeTabs;
+import org.slf4j.Logger;
+import com.mojang.logging.LogUtils;
+
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+
+// The value here should match an entry in META-INF/neoforge.mods.toml
+@Mod({{main_class_name}}.MOD_ID)
+public class {{main_class_name}} {
+    public static final String MOD_ID = "{{modid}}";
+    private static final Logger LOGGER = LogUtils.getLogger();
+
+    // FML will inject these constructor params
+    public {{main_class_name}}(IEventBus modEventBus, ModContainer modContainer) {
+        // Register lifecycle listeners
+        modEventBus.addListener(this::commonSetup);
+
+        // Register this class on the global event bus (only if you have @SubscribeEvent methods)
+        NeoForge.EVENT_BUS.register(this);
+
+        // Register item registry
+        ModItems.register(modEventBus);
+
+        // Creative tab population
+        modEventBus.addListener(this::addCreative);
+
+        // Optional config registration (keep if you have a Config class)
+        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    private void commonSetup(final FMLCommonSetupEvent event) {}
+
+    private void addCreative(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == {{creative_tab_key}}) {
+            // ==MM:CREATIVE_ACCEPT_BEGIN==
+            // Subgraph inserts one or more:
+            // event.accept(ModItems.{{registry_constant}});
+            // ==MM:CREATIVE_ACCEPT_END==
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerStarting(ServerStartingEvent event) {}
+
+    @EventBusSubscriber(modid = MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    public static class ClientModEvents {
+        @SubscribeEvent
+        public static void onClientSetup(FMLClientSetupEvent event) {}
+    }
+}

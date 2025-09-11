@@ -1,0 +1,21 @@
+package {{base_package}}.item;
+
+import {{base_package}}.{{main_class_name}};
+import net.minecraft.world.item.Item;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredItem;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+public class ModItems {
+    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems({{main_class_name}}.MOD_ID);
+
+    // ==MM:ITEM_REGISTRATIONS_BEGIN==
+    // Subgraph inserts one or more blocks like:
+    // public static final DeferredItem<Item> {{registry_constant}} = ITEMS.register("{{item_id}}",
+    //         () -> new Item(new Item.Properties()));
+    // ==MM:ITEM_REGISTRATIONS_END==
+
+    public static void register(IEventBus eventBus) {
+        ITEMS.register(eventBus);
+    }
+}

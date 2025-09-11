@@ -34,6 +34,12 @@ class AgentState(TypedDict, total=False):
     results: Optional[Dict[str, Any]]
     events: Optional[List[Dict[str, Any]]]
 
+    # Items registry + selection
+    items: Optional[Dict[str, Dict[str, Any]]]   # { item_id: itemSchema-like dict }
+    current_item_id: Optional[str]               # which item the pipeline is working on
+    item: Optional[Dict[str, Any]]               # fully prepared schema for current item
+    items_initialized: Optional[bool]            # init guard (runs once)
+
     # Legacy/general bookkeeping
     info_called: bool
     tasklist_active: bool

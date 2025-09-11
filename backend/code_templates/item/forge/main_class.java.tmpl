@@ -1,0 +1,66 @@
+package {{base_package}};
+
+import com.mojang.logging.LogUtils;
+import {{base_package}}.item.ModItems;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import org.slf4j.Logger;
+
+// The value here should match an entry in the META-INF/mods.toml file
+@Mod({{main_class_name}}.MOD_ID)
+public class {{main_class_name}} {
+    // Define mod id in a common place for everything to reference
+    public static final String MOD_ID = "{{modid}}";
+    // Directly reference a slf4j logger
+    public static final Logger LOGGER = LogUtils.getLogger();
+
+    public {{main_class_name}}() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        modEventBus.addListener(this::commonSetup);
+        // Register ourselves for server and other game events we are interested in
+        MinecraftForge.EVENT_BUS.register(this);
+
+        ModItems.register(modEventBus);
+
+        // Register the item(s) to a creative tab
+        modEventBus.addListener(this::addCreative);
+
+        // If you use config:
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    private void commonSetup(final FMLCommonSetupEvent event) {
+    }
+
+    // Add items to creative tabs deterministically
+    private void addCreative(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() == {{creative_tab_key}}) {
+            // ==MM:CREATIVE_ACCEPT_BEGIN==
+            // Subgraph inserts one or more:
+            // event.accept(ModItems.{{registry_constant}});
+            // ==MM:CREATIVE_ACCEPT_END==
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerStarting(ServerStartingEvent event) {
+    }
+
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+    public static class ClientModEvents {
+        @SubscribeEvent
+        public static void onClientSetup(FMLClientSetupEvent event) {
+        }
+    }
+}
