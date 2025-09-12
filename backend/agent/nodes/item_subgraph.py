@@ -11,6 +11,7 @@ from backend.agent.providers.paths import (
     lang_file,
     model_file,
     texture_file,
+    java_base_package_dir,
 )
 
 # Anchor constants colocated here for clarity
@@ -174,6 +175,18 @@ def item_subgraph(state: AgentState) -> AgentState:
 
     # Content templates dir (per framework; STRICT existence)
     td = templates_dir(framework, domain="item")
+
+    # 0) Ensure Config.java from template (written as a normal class, no anchors)
+    cfg_tmpl = td / "config.java.tmpl"
+    if cfg_tmpl.exists():
+        cfg_dst_dir = java_base_package_dir(ws, base_package)
+        cfg_dst = cfg_dst_dir / "Config.java"
+        cfg_src = _render(cfg_tmpl.read_text(encoding="utf-8"), ctx)
+        prev_cfg = storage.read_text(cfg_dst) if storage.exists(cfg_dst) else None
+        storage.ensure_dir(cfg_dst_dir)
+        storage.write_text(cfg_dst, cfg_src, encoding="utf-8")
+        if prev_cfg != cfg_src:
+            changed.append(str(cfg_dst))
 
     # 1) Insert registration line (between anchors, idempotent)
     reg_tmpl = td / "mod_items_registration_line.java.tmpl"
