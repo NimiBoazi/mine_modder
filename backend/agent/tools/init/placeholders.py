@@ -139,6 +139,20 @@ def apply_placeholders(
         gp_changed = _patch_gradle_properties(ws, modid, display_name, group, authors, description, storage)
         changed.update(gp_changed)
 
+        # Remove example assets folder if present: src/main/resources/assets/examplemod
+        assets_root = ws / "src" / "main" / "resources" / "assets"
+        example_assets = assets_root / "examplemod"
+        if storage.exists(example_assets):
+            try:
+                storage.remove_tree(example_assets)
+            except Exception:
+                pass
+            # prune empty parents up to (but not including) assets/
+            try:
+                _prune_empty_parents(example_assets, assets_root, storage)
+            except Exception:
+                pass
+
     elif fw == "fabric":
         manifest_changed = _touch_fabric_manifest(ws, modid, display_name, description, authors, license_name, version)
         changed.update(manifest_changed)

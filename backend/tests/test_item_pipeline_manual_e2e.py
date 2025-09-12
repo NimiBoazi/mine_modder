@@ -87,7 +87,7 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     # ---- 1) Run init pipeline via the main graph (like test_graph_init_e2e) ----
     g = build_graph()
     init_state = {
-        "user_input": "Create a sapphire block.",  # avoid the word 'item' to not schedule item tasks
+        "user_input": "Create an alexandrite item.",  # avoid the word 'item' to not schedule item tasks
         "framework": framework,
         "mc_version": mc_version,
         "author": "TestAuthor",
