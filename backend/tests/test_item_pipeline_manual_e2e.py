@@ -17,7 +17,8 @@ Run from repo root:
 MDK workspace location:
   - Created under: runs/_test_workspaces (override with MM_TEST_WORKSPACES_ROOT)
   - Snapshots saved under: runs/_test_artifacts/<modid>_neoforge_1.21.1_manual_item/
-      - after_init
+      - after_mdk_download (downloads dir + zip)
+      - after_init (workspace after init)
       - after_items_init_guard
       - after_item_subgraph
   - Override artifact root with MM_TEST_ARTIFACTS_ROOT
@@ -86,7 +87,7 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     # ---- 1) Run init pipeline via the main graph (like test_graph_init_e2e) ----
     g = build_graph()
     init_state = {
-        "user_input": "Create a basic NeoForge mod.",  # avoid the word 'item' to not schedule item tasks
+        "user_input": "Create a sapphire block.",  # avoid the word 'item' to not schedule item tasks
         "framework": framework,
         "mc_version": mc_version,
         "author": "TestAuthor",
@@ -112,7 +113,22 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     modid = result["modid"]
     base_package = result["package"]
     main_class_name = _cap_modid(modid)
+
+    # Stage snapshots base
     dest_base = artifacts_root / f"{modid}_{framework}_{mc_version}_manual_item"
+
+    # Snapshot immediately after MDK download (downloads folder + raw zip)
+    dl_dir = Path((result.get("artifacts") or {}).get("mdk_download_dir") or (downloads_root / framework / mc_version))
+    _snapshot_tree(dl_dir, dest_base / "after_mdk_download")
+    zip_path = Path((result.get("artifacts") or {}).get("mdk_zip_path") or "")
+    if zip_path and zip_path.exists():
+        (dest_base / "after_mdk_download").mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(zip_path, (dest_base / "after_mdk_download" / zip_path.name))
+        except Exception as e:
+            print(f"[artifact] Failed to copy mdk zip: {e}")
+
+    # Snapshot the workspace right after init
     _snapshot_tree(ws, dest_base / "after_init")
 
     item_id = "alexandrite"

@@ -41,9 +41,16 @@ def init_subgraph(state: AgentState) -> AgentState:
     dest_zip = dl_dir / pr.filename
     download(pr.url, dest_zip)
 
+    # Record artifacts for tests/snapshots
+    state.setdefault("artifacts", {})["mdk_zip_path"] = str(dest_zip)
+    state["artifacts"]["mdk_download_dir"] = str(dl_dir)
+
     # 2) Extract
     extracted_dir = dl_dir / "extracted"
     root = extract_archive(dest_zip, extracted_dir)
+
+    # Track extracted directory for snapshotting
+    state.setdefault("artifacts", {})["mdk_extracted_dir"] = str(extracted_dir)
 
     # 3) Create workspace and copy
     ws = ws_create(runs_root, modid=modid, framework=framework, mc_version=mc_version)
@@ -58,7 +65,7 @@ def init_subgraph(state: AgentState) -> AgentState:
     })
 
     # 4) Placeholders (use detected MC for any version-derived writes)
-    apply_placeholders(
+    ph = apply_placeholders(
         ws, framework,
         modid=modid,
         group=group,
@@ -68,6 +75,9 @@ def init_subgraph(state: AgentState) -> AgentState:
         description=description,
         authors=authors or None,
     )
+    # If placeholders derived a framework-specific package (e.g., net.<modid> for NeoForge), persist it
+    if isinstance(ph, dict) and ph.get("package"):
+        state["package"] = ph["package"]
 
     # 5) Toolchain (only if MDK version was detected; no fallback to user value)
     if detected_mc:

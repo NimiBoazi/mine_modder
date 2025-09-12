@@ -89,8 +89,17 @@ def apply_placeholders(
     renamed: list[tuple[str, str]] = []
     notes: list[str] = []
 
-    # 1) Move packages first (so subsequent FQCN rewrites match on-disk files)
-    pkg_changed = _refactor_sources_to_package(ws, package, storage)
+    # 1) Determine effective package and refactor sources first (so subsequent FQCN rewrites match on-disk files)
+    if fw == "neoforge":
+        # For NeoForge, derive net.<author>.<modid> and create an empty target package dir
+        mod_seg = _safe_pkg_segment(modid)
+        first_author = (authors[0] if isinstance(authors, list) and authors else "author")
+        author_seg = _safe_pkg_segment(first_author)
+        effective_package = f"net.{author_seg}.{mod_seg}"
+        pkg_changed = _refactor_sources_to_package(ws, effective_package, storage, empty_target=True)
+    else:
+        effective_package = package
+        pkg_changed = _refactor_sources_to_package(ws, effective_package, storage)
     changed.update(pkg_changed)
 
     # 2) Framework-specific manifest + code updates
@@ -105,7 +114,7 @@ def apply_placeholders(
         for manifest_name in ("neoforge.mods.toml", "mods.toml"):
             manifest_path = ws / "src" / "main" / "resources" / "META-INF" / manifest_name
             if storage.exists(manifest_path):
-                mix_changed, mix_renames, mix_notes = _patch_forge_like_mixins(ws, package, modid, manifest_path, storage)
+                mix_changed, mix_renames, mix_notes = _patch_forge_like_mixins(ws, effective_package, modid, manifest_path, storage)
                 changed.update(mix_changed)
                 renamed.extend(mix_renames)
                 notes.extend(mix_notes)
@@ -160,7 +169,7 @@ def apply_placeholders(
         "framework": fw,
         "modid": modid,
         "group": group,
-        "package": package,
+        "package": effective_package,
         "changed_files": sorted(changed),
         "renamed_files": renamed,
         "notes": notes,
@@ -546,7 +555,7 @@ def _patch_forge_like_mixins(
         nonlocal changed, renames, notes
         prefix = match.group(1)
         old_mixin_name = match.group(2)
-        
+
         old_mixin_path = res_dir / old_mixin_name
         if not storage.exists(old_mixin_path):
             notes.append(f"Mixin file referenced in {manifest_path.name} not found: {old_mixin_name}")
@@ -555,7 +564,7 @@ def _patch_forge_like_mixins(
         # 1. Determine new name and rename the physical file
         desired_mixin_name = f"{modid}.mixins.json"
         new_mixin_path = old_mixin_path.with_name(desired_mixin_name)
-        
+
         current_mixin_path = old_mixin_path
         if str(old_mixin_path) != str(new_mixin_path):
             if storage.exists(new_mixin_path):
@@ -580,9 +589,9 @@ def _patch_forge_like_mixins(
                     parts = old_mixin_pkg.split('.')
                     if parts[-1].lower() == 'mixin':
                          suffix = "." + parts[-1]
-                
+
                 desired_mixin_pkg = f"{package}{suffix}"
-                
+
                 if old_mixin_pkg != desired_mixin_pkg:
                     mixin_data["package"] = desired_mixin_pkg
                     storage.write_text(current_mixin_path, json.dumps(mixin_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -729,15 +738,51 @@ def _ensure_gradle_group(ws: Path, group: str, storage) -> set[str]:
 # -------------------------
 
 EXAMPLE_PACKAGES = (
-    "com.example.examplemod",       # Forge MDK classic
-    "com.example.mod",              # common variant
-    "net.fabricmc.example",         # Fabric example
+    "com.example.examplemod",
+    "com.example.mod",
+    "com.example",                # <— add this
+    "net.fabricmc.example",
 )
 
+def _safe_pkg_segment(s: str) -> str:
+    """Sanitize an input into a valid Java package segment: lowercase, [a-z0-9_], starts with letter."""
+    seg = re.sub(r"[^a-z0-9_]+", "_", (s or "").lower())
+    if not seg or not seg[0].isalpha():
+        seg = "m" + seg
+    return seg
 
-def _refactor_sources_to_package(ws: Path, new_pkg: str, storage) -> set[str]:
+
+def _prune_empty_parents(path: Path, stop_at: Path, storage) -> None:
+    """Remove empty parent directories up to (but not including) stop_at."""
+    try:
+        p = Path(path)
+        while True:
+            parent = p.parent
+            if parent is None or str(parent) == str(stop_at):
+                break
+            # Only remove if exists and empty
+            try:
+                if storage.exists(parent):
+                    entries = [e for e in storage.iterdir(parent)]
+                    if not entries:
+                        # Use storage.remove_tree to delete empty dir (storage has no rmdir)
+                        storage.remove_tree(parent)
+                        p = parent
+                        continue
+            except Exception:
+                pass
+            break
+    except Exception:
+        pass
+
+
+
+def _refactor_sources_to_package(ws: Path, new_pkg: str, storage, empty_target: bool = False) -> set[str]:
     """Move Java/Kotlin sources from example package to `new_pkg` and rewrite
     `package ...;` lines. Returns set of changed file paths.
+
+    If empty_target=True, ensure the target package directory exists and is empty,
+    remove the example package directory if present, and do NOT move any sources.
     """
     changed: set[str] = set()
     for lang_root in (ws / "src" / "main" / "java", ws / "src" / "main" / "kotlin"):
@@ -755,12 +800,38 @@ def _refactor_sources_to_package(ws: Path, new_pkg: str, storage) -> set[str]:
             pkgs = [p for p in storage.iterdir(lang_root) if p.is_dir()]
             if len(pkgs) == 1:
                 example_dir = pkgs[0]
-            else:
-                # still rewrite package lines in place
-                changed.update(_rewrite_package_decls(lang_root, new_pkg, storage))
-                continue
 
         target_dir = lang_root / Path(new_pkg.replace(".", "/"))
+        storage.ensure_dir(target_dir)
+
+        if empty_target:
+            # Make target_dir an empty folder (keep parent e.g., 'net')
+            try:
+                if storage.exists(target_dir):
+                    storage.remove_tree(target_dir)
+            except Exception:
+                pass
+            storage.ensure_dir(target_dir)
+            # Remove the example dir if it exists
+            if example_dir and storage.exists(example_dir):
+                try:
+                    storage.remove_tree(example_dir)
+                except Exception:
+                    pass
+                # prune any now-empty parents like com/ and com/example/
+                try:
+                    _prune_empty_parents(example_dir, lang_root, storage)
+                except Exception:
+                    pass
+            # Do not move or rewrite any sources
+            continue
+
+        # Default behavior: move example tree into target and rewrite packages
+        if example_dir is None:
+            # still rewrite package lines in place
+            changed.update(_rewrite_package_decls(lang_root, new_pkg, storage))
+            continue
+
         if target_dir != example_dir:
             storage.ensure_dir(target_dir)
             for path in storage.rglob(example_dir, "*"):
@@ -774,6 +845,11 @@ def _refactor_sources_to_package(ws: Path, new_pkg: str, storage) -> set[str]:
                     changed.add(str(dst))
             try:
                 storage.remove_tree(example_dir)
+            except Exception:
+                pass
+            # prune any now-empty parents like com/ and com/example/
+            try:
+                _prune_empty_parents(example_dir, lang_root, storage)
             except Exception:
                 pass
             # Rewrite in the new tree
