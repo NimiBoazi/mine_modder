@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from pathlib import Path
-from typing import List
+from typing import List, Dict, Any, Dict, Any
 from backend.agent.state import AgentState
 from backend.agent.wrappers.storage import STORAGE as storage
 from backend.agent.providers.paths import (
@@ -13,6 +13,8 @@ from backend.agent.providers.paths import (
     texture_file,
     java_base_package_dir,
 )
+# NEW: LLM provider for item schema
+from backend.agent.providers.item_schema import build_item_schema_extractor
 
 # Anchor constants colocated here for clarity
 REG_BEGIN = "// ==MM:ITEM_REGISTRATIONS_BEGIN=="
@@ -131,36 +133,69 @@ def _json_lang_update(path: Path, key: str, value: str) -> bool:
 def item_subgraph(state: AgentState) -> AgentState:
     ws = Path(state["workspace_path"])
     framework = state["framework"]
-
-    task = state.get("current_task") or {}
-    item_id = ((task.get("params") or {}).get("item_id") or "").strip()
-    if not item_id:
-        raise RuntimeError("item_subgraph: task.params.item_id is required")
-
-    items = state.get("items") or {}
-    base_schema = items.get(item_id)
-    if not isinstance(base_schema, dict):
-        raise RuntimeError(f"item_subgraph: no schema found in state['items'] for '{item_id}'")
-
-    # derive deterministic ctx from mod state + schema
     modid = state["modid"]
     base_package = state["package"]
+
+    if not ws or not framework or not modid or not base_package:
+        raise RuntimeError("item_subgraph: missing required state (workspace_path/framework/modid/package).")
+
+    # === NEW: derive the item schema from the LLM based on current task + user prompt ===
+    task_obj: Dict[str, Any] = state.get("current_task") or {}
+    # Prefer human-readable fields; fallback to serialized task for context
+    task_text = (
+        task_obj.get("title")
+        or task_obj.get("name")
+        or task_obj.get("desc")
+        or task_obj.get("description")
+        or task_obj.get("text")
+        or task_obj.get("prompt")
+        or task_obj.get("spec")
+        or task_obj.get("type")
+        or ""
+    )
+    if not task_text:
+        # provide full task dict as last-resort context (not an LLM fallback—just input)
+        import json as _json
+        task_text = _json.dumps(task_obj, ensure_ascii=False)
+
+    user_prompt = state.get("user_input", "") or ""
+
+    extractor = build_item_schema_extractor()
+    if extractor is None:
+        raise RuntimeError("item_subgraph: item schema provider unavailable or misconfigured.")
+
+    # Will raise if the wrapper/model returns invalid JSON or lacks item_id (no fallbacks in wrapper)
+    item_schema: Dict[str, Any] = extractor.invoke({"task": task_text, "user_prompt": user_prompt})
+
+    item_id = item_schema["item_id"].strip()
+
+    # Minimal, derivable fields to keep the rest of the pipeline deterministic
     main_class_name = "".join(p.capitalize() for p in modid.split("_") if p)
-    registry_constant = re.sub(r'[^A-Za-z0-9]+', '_', item_id).upper().strip('_')
 
-    item = dict(base_schema)  # don’t mutate registry
-    item.setdefault("add_to_creative", True)
-    item.setdefault("model_parent", "minecraft:item/generated")
+    # Persist a full schema for this item_id inside state["items"] (include mod context here)
+    items = state.get("items") or {}
+    # copy to avoid mutating provider output
+    persisted = dict(item_schema)
+    persisted.update({
+        "modid": modid,
+        "base_package": base_package,
+        "main_class_name": main_class_name,
+    })
+    items[item_id] = persisted
+    state["items"] = items
+    state["current_item_id"] = item_id
+    state["item"] = persisted
 
+    # === Continue with deterministic file updates using provided schema ===
     ctx = {
         "base_package": base_package,
         "main_class_name": main_class_name,
         "modid": modid,
-        "creative_tab_key": item["creative_tab_key"],
-        "registry_constant": registry_constant,
+        "creative_tab_key": item_schema["creative_tab_key"],
+        "registry_constant": item_schema.get("registry_constant") or re.sub(r'[^A-Za-z0-9]+', '_', item_id).upper().strip('_'),
         "item_id": item_id,
-        "display_name": item["display_name"],
-        "model_parent": item["model_parent"],
+        "display_name": item_schema["display_name"],
+        "model_parent": item_schema["model_parent"],
     }
 
     # Workspace paths (via provider) — use derived values to avoid schema drift
@@ -197,7 +232,7 @@ def item_subgraph(state: AgentState) -> AgentState:
         changed.append(str(mod_items_path))
 
     # 2) Insert creative tab accept (if requested)
-    if bool(item.get("add_to_creative", True)):
+    if bool(item_schema.get("add_to_creative", True)):
         cre_tmpl = td / "creative_tab_accept_line.java.tmpl"
         if not cre_tmpl.exists():
             raise FileNotFoundError(f"Missing template: {cre_tmpl}")
@@ -214,7 +249,7 @@ def item_subgraph(state: AgentState) -> AgentState:
             changed.append(str(main_class_path))
 
     # 3) Lang merge
-    if _json_lang_update(lang_path, f'item.{item["modid"]}.{item["item_id"]}', item["display_name"]):
+    if _json_lang_update(lang_path, f'item.{modid}.{item_id}', item_schema["display_name"]):
         changed.append(str(lang_path))
 
     # 4) Model overwrite (deterministic)
@@ -235,11 +270,11 @@ def item_subgraph(state: AgentState) -> AgentState:
 
     # Record
     state.setdefault("results", {})
-    task = state.get("current_task") or {}
-    state["results"][task.get("id", f'item:{item["item_id"]}')] = {
+    task_id = (task_obj.get("id") or f'item:{item_id}')
+    state["results"][task_id] = {
         "ok": True,
         "changed_files": changed,
         "notes": notes,
     }
-    state.setdefault("events", []).append({"node": "item_subgraph", "ok": True, "item": item["item_id"]})
+    state.setdefault("events", []).append({"node": "item_subgraph", "ok": True, "item": item_id})
     return state

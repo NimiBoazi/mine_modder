@@ -29,7 +29,8 @@ Requires GOOGLE_API_KEY in backend/.env (same as init E2E).
 import os
 from pathlib import Path
 import shutil
-import re
+import json
+
 
 import pytest
 from dotenv import load_dotenv, find_dotenv
@@ -39,17 +40,13 @@ from backend.agent.nodes.item_entry import item_entry
 from backend.agent.nodes.item_init import items_init_guard
 from backend.agent.nodes.item_subgraph import item_subgraph
 from backend.agent.providers.paths import (
-    mod_items_file, main_class_file, lang_file, model_file, texture_file
+    mod_items_file, main_class_file, lang_file, model_file, texture_file, java_base_package_dir
 )
+from backend.agent.providers.item_schema import build_item_schema_extractor
 
 
 def _cap_modid(modid: str) -> str:
     return "".join(p.capitalize() for p in modid.split("_") if p)
-
-
-def _registry_constant(item_id: str) -> str:
-    return re.sub(r"[^A-Za-z0-9]+", "_", item_id).upper().strip("_")
-
 
 
 def _snapshot_tree(src: Path, dst: Path) -> None:
@@ -87,7 +84,7 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     # ---- 1) Run init pipeline via the main graph (like test_graph_init_e2e) ----
     g = build_graph()
     init_state = {
-        "user_input": "Create an alexandrite item.",  # avoid the word 'item' to not schedule item tasks
+        "user_input": "Create a flip flop item.",  # avoid the word 'item' to not schedule item tasks
         "framework": framework,
         "mc_version": mc_version,
         "author": "TestAuthor",
@@ -109,7 +106,7 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     assert ws.exists() and ws.is_dir(), f"workspace not created: {ws}"
     assert smoke.get("ok") is True, f"Gradle smoke failed: {smoke}"
 
-    # ---- 2) Prepare minimal item schema in state and skip planner/router ----
+    # ---- 2) Prepare task and derive item schema via wrapper; skip planner/router ----
     modid = result["modid"]
     base_package = result["package"]
     main_class_name = _cap_modid(modid)
@@ -131,25 +128,35 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     # Snapshot the workspace right after init
     _snapshot_tree(ws, dest_base / "after_init")
 
-    item_id = "alexandrite"
-    schema = {
+    # Define the item task we want to create
+    task_title = "Create a flip flop item"
+
+    # Use the same extractor the subgraph uses, to compute the item schema deterministically for this test
+    extractor = build_item_schema_extractor()
+    assert extractor is not None, "Item schema extractor unavailable; ensure GOOGLE_API_KEY is set."
+    predicted = extractor.invoke({
+        "task": task_title,
+        "user_prompt": os.getenv("MM_TEST_USER_PROMPT", ""),
+    })
+
+    # DEBUG: show the item schema before running creation nodes
+    print("[debug] Predicted item schema:")
+    print(json.dumps(predicted, indent=2, sort_keys=True))
+
+    # Add required mod context for the guard to render templates
+    schema_for_guard = dict(predicted)
+    schema_for_guard.update({
         "base_package": base_package,
         "main_class_name": main_class_name,
         "modid": modid,
-        "item_id": item_id,
-        "display_name": "Alexandrite Gem",
-        "creative_tab_key": "CreativeModeTabs.INGREDIENTS",
-        "registry_constant": _registry_constant(item_id),
-        "model_parent": "minecraft:item/generated",
-    }
+    })
 
     # Start from init result; do not override framework/modid/package/workspace_path
     state = dict(result)
-    # Set/augment only what the item pipeline needs
+    # Set/augment what the item pipeline needs
     state["items_initialized"] = False
-    state["items"] = {item_id: schema}
-    state["current_task"] = {"id": "t_item_1", "type": "add_custom_item", "params": {"item_id": item_id, "item": schema}}
-    state["item"] = schema
+    state["current_task"] = {"id": "t_item_1", "type": "add_custom_item", "title": task_title}
+    state["item"] = schema_for_guard  # used by items_init_guard for placeholders only
 
     # ---- 3) Run item pipeline nodes directly ----
     state = item_entry(state)
@@ -157,6 +164,10 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     _snapshot_tree(ws, dest_base / "after_items_init_guard")
     state = item_subgraph(state)
     _snapshot_tree(ws, dest_base / "after_item_subgraph")
+
+    # Retrieve the final persisted item schema from the state as produced by the subgraph
+    final_item = state.get("item") or {}
+    assert final_item.get("item_id"), "Subgraph did not persist item schema."
 
     # ---- 4) Assertions on outputs ----
     # Check files exist
@@ -167,21 +178,21 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
         "base_package": base_package,
         "main_class_name": main_class_name,
         "modid": modid,
-        "creative_tab_key": schema["creative_tab_key"],
-        "registry_constant": schema["registry_constant"],
-        "item_id": item_id,
-        "display_name": schema["display_name"],
-        "model_parent": schema["model_parent"],
+        "creative_tab_key": final_item["creative_tab_key"],
+        "registry_constant": final_item["registry_constant"],
+        "item_id": final_item["item_id"],
+        "display_name": final_item["display_name"],
+        "model_parent": final_item["model_parent"],
     })
     texture = texture_file(ws, framework, {
         "base_package": base_package,
         "main_class_name": main_class_name,
         "modid": modid,
-        "creative_tab_key": schema["creative_tab_key"],
-        "registry_constant": schema["registry_constant"],
-        "item_id": item_id,
-        "display_name": schema["display_name"],
-        "model_parent": schema["model_parent"],
+        "creative_tab_key": final_item["creative_tab_key"],
+        "registry_constant": final_item["registry_constant"],
+        "item_id": final_item["item_id"],
+        "display_name": final_item["display_name"],
+        "model_parent": final_item["model_parent"],
     })
 
     assert mod_items.exists(), f"ModItems.java missing: {mod_items}"
@@ -191,9 +202,13 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
     # Texture is a hint; may not be created. Ensure directory exists at least.
     assert texture.parent.exists(), f"Texture directory missing: {texture.parent}"
 
+    # Config.java should be written by item_subgraph into the base package dir
+    cfg_path = java_base_package_dir(ws, base_package) / "Config.java"
+    assert cfg_path.exists(), f"Config.java missing: {cfg_path}"
+
     # Check anchor insertions by string match
     mod_items_txt = mod_items.read_text(encoding="utf-8")
-    assert f"ITEMS.register(\"{item_id}\")" in mod_items_txt or schema["registry_constant"] in mod_items_txt
+    assert f"ITEMS.register(\"{final_item['item_id']}\")" in mod_items_txt or final_item["registry_constant"] in mod_items_txt
 
     main_txt = main_class.read_text(encoding="utf-8")
     assert "addCreative(BuildCreativeModeTabContentsEvent event)" in main_txt
