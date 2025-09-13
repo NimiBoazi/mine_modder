@@ -27,15 +27,20 @@ def next_task_planner_node(state: AgentState) -> AgentState:
     outline = state["plan"]
     max_tasks = int(state.get("max_tasks", 3))
 
-    # Ensure milestones_queue exists and current_milestone mirrors its head
+    # Use milestones_queue created in plan_high_level. Do not create it here.
     milestones_queue: List[Dict[str, Any]] = list(state.get("milestones_queue") or [])
-    if not milestones_queue:
-        milestones_queue = list((outline.get("milestones") or []))
-        state["milestones_queue"] = milestones_queue
-        state["current_milestone"] = milestones_queue[0] if milestones_queue else None
+    if len(milestones_queue) == 0:
+        # Nothing to plan; continue straight to router via graph wiring
+        state["current_milestone"] = None
+        state.setdefault("events", []).append({
+            "node": "next_task_planner_node", "ok": True, "planned": 0, "reason": "no_milestones"
+        })
+        return state
 
-    # Determine current milestone selector for wrapper: use head index 0
-    current_selector: Any = 0 if milestones_queue else None
+    # Determine current milestone selector for wrapper: pass the milestone id/title
+    cm = milestones_queue[0]
+    state["current_milestone"] = cm
+    current_selector: Any = cm.get("id") or cm.get("title") or 0
 
     result: Dict[str, Any] = runnable.invoke({
         "user_prompt": user_prompt,
@@ -46,7 +51,20 @@ def next_task_planner_node(state: AgentState) -> AgentState:
 
     tasks: List[Dict[str, Any]] = list(result.get("tasks") or [])
     if not tasks:
-        raise RuntimeError("Planner returned no tasks")
+        # No tasks for current milestone: advance milestone and keep task queue empty
+        milestones_queue: List[Dict[str, Any]] = list(state.get("milestones_queue") or [])
+        if milestones_queue:
+            milestones_queue = milestones_queue[1:]
+            state["milestones_queue"] = milestones_queue
+            state["current_milestone"] = milestones_queue[0] if milestones_queue else None
+        else:
+            state["current_milestone"] = None
+        state["task_queue"] = []
+        state["current_task"] = {"type": None, "title": None, "params": {}}
+        state.setdefault("events", []).append({
+            "node": "next_task_planner_node", "ok": True, "planned": 0, "advanced": "milestone"
+        })
+        return state
 
     # Queue invariant: current_task == task_queue[0]
     state["task_queue"] = tasks

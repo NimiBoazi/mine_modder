@@ -25,12 +25,15 @@ def make_next_tasks_planner(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
     }
     Notes:
     - Allowed task types are hardcoded in this module (ALLOWED_TASK_TYPES).
-    - Params should be minimal and executable by the agent without further planning.
+    - Right now the only task available is add_custom_item, if the milestone is about creating an item, a single add_custom_item is the only task needed to complete the milestone.
+    - If there are no tasks relevant to the milestone, return an empty list in the tasks field
     """
     system = SystemMessage(content=(
         "You are a short-term task planner for a Minecraft mod agent.\n"
         "Given: the user prompt, a high-level outline, and a list of ALLOWED TASK TYPES.\n"
         "You are GIVEN the CURRENT milestone; split this milestone into executable tasks using ONLY the allowed types.\n"
+        "If only one task is needed to complete the milestone, return just the one task\n"
+        "If no tasks are directly relevant to completing the milestone, don't return any tasks.\n"
         "Return STRICT JSON only.\n\n"
         "Output schema:\n"
         "{\n"

@@ -78,7 +78,7 @@ from .nodes.weather_subgraph import weather_subgraph
 from .nodes.qa_subgraph import qa_subgraph
 
 # Routing Imports
-from .nodes.router import route_task
+from .nodes.router import route_task, route_after_handle_result
 
 def build_graph():
     BACKEND_ENV = Path(__file__).resolve().parents[1] / ".env"
@@ -119,19 +119,13 @@ def build_graph():
     g.add_conditional_edges("infer_init_params", route_workspace, {"init_subgraph": "init_subgraph", "plan_high_level": "plan_high_level"})
     g.add_edge("init_subgraph", "plan_high_level")
 
-    # After outlining, route based on queues
-    g.add_conditional_edges("plan_high_level", route_task, {
-        "plan_next_tasks": "plan_next_tasks",
-        "item_subgraph": "item_subgraph",
-        "handle_result": "handle_result",
-        "summarize_and_finish": "summarize_and_finish",
-    })
+    # After outlining, always plan next tasks first
+    g.add_edge("plan_high_level", "plan_next_tasks")
 
-    # Plan next tasks then route again
+    # After planning next tasks, route to the appropriate next step
     g.add_conditional_edges("plan_next_tasks", route_task, {
-        "plan_next_tasks": "plan_next_tasks",
+        "plan_next_tasks": "plan_next_tasks",  # if no tasks but milestones remain
         "item_subgraph": "item_subgraph",
-        "handle_result": "handle_result",
         "summarize_and_finish": "summarize_and_finish",
     })
 
@@ -139,11 +133,10 @@ def build_graph():
         g.add_edge(sub, "verify_task")
     g.add_edge("verify_task", "handle_result")
 
-    # After handling result, route to next step or finish
-    g.add_conditional_edges("handle_result", route_task, {
+    # After handling result, route based on queues
+    g.add_conditional_edges("handle_result", route_after_handle_result, {
         "plan_next_tasks": "plan_next_tasks",
         "item_subgraph": "item_subgraph",
-        "handle_result": "handle_result",
         "summarize_and_finish": "summarize_and_finish",
     })
     g.add_edge("summarize_and_finish", END)

@@ -16,11 +16,23 @@ def handle_result(state: AgentState) -> AgentState:
     mq: List[Dict[str, Any]] = list(state.get("milestones_queue") or [])
 
     if tq:
-        # Drop the current (head) task and advance
+        # Drop the current (head) task
         tq = tq[1:]
         state["task_queue"] = tq
-        state["current_task"] = tq[0] if tq else {"type": None, "title": None, "params": {}}
-        state.setdefault("events", []).append({"node": "handle_result", "ok": True, "advanced": "task"})
+        if tq:
+            # Still tasks remaining in this milestone
+            state["current_task"] = tq[0]
+            state.setdefault("events", []).append({"node": "handle_result", "ok": True, "advanced": "task"})
+            return state
+        # No tasks remain: advance milestone now
+        if mq:
+            mq = mq[1:]
+            state["milestones_queue"] = mq
+            state["current_milestone"] = mq[0] if mq else {"id": None, "title": None}
+        else:
+            state["current_milestone"] = {"id": None, "title": None}
+        state["current_task"] = {"type": None, "title": None, "params": {}}
+        state.setdefault("events", []).append({"node": "handle_result", "ok": True, "advanced": "task_and_milestone"})
         return state
 
     # No tasks left for current milestone: advance milestones

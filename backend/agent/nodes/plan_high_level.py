@@ -19,8 +19,12 @@ def high_level_outline_node(state: AgentState) -> AgentState:
 
     outline: Dict[str, Any] = runnable.invoke({"user_prompt": user_prompt})
 
-    # Update state (returning a delta is fine; tests use dict-style updates too)
+    # Update state with outline and initialize milestones_queue here (source of truth)
     state["plan"] = outline
+    milestones = list((outline.get("milestones") or []))
+    state["milestones_queue"] = milestones
+    state["current_milestone"] = milestones[0] if milestones else None
+
     state.setdefault("events", []).append({"node": "high_level_outline_node", "ok": True})
     return state
 

@@ -20,6 +20,7 @@ def make_high_level_outline_wrapper(model: BaseChatModel) -> Runnable[Dict[str, 
     system = SystemMessage(content=(
         "You are a senior software planner for a Minecraft mod project.\n"
         "Produce a concise high-level outline with major milestones to complete the project.\n"
+        "Creating a single item should be considered a single milestone.\n"
         "Return STRICT JSON only (no code fences, no extra text).\n\n"
         "Schema:\n"
         "{\n"
