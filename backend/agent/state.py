@@ -9,8 +9,13 @@ class AgentState(TypedDict, total=False):
     authors: Optional[List[str]]    # normalized list
 
     # Planning and control
-    plan: Optional[Dict[str, Any]]
-    current_task: Optional[Dict[str, Any]]
+    plan: Optional[Dict[str, Any]]          # high-level outline
+    current_task: Optional[Dict[str, Any]]  # task currently being executed (should mirror task_queue[0])
+    task_queue: Optional[List[Dict[str, Any]]]  # tasks for the current milestone (first is current)
+    current_milestone: Optional[Dict[str, Any]]  # current milestone object (should mirror milestones_queue[0])
+    milestones_queue: Optional[List[Dict[str, Any]]]  # ordered milestones (first is current)
+    current_milestone_id: Optional[str]     # selector for the current outline milestone
+    current_milestone_index: Optional[int]  # alternative numeric selector
     _needs_init: Optional[bool]
     _no_tasks_left: Optional[bool]
     awaiting_user: Optional[Dict[str, Any]]

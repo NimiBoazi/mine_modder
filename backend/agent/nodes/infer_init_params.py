@@ -42,7 +42,18 @@ def make_infer_init_params_node(name_desc_chain=None):
         state["package"] = package
         state.setdefault("version", "0.1.0")
         state.setdefault("timeout", 1800)
+        # Provide sensible defaults to enable a zero-config full run
+        state.setdefault("framework", "neoforge")
+        state.setdefault("mc_version", "1.21.1")
 
-        state.setdefault("events", []).append({"node": "infer_init_params", "ok": True, "modid": modid, "group": group, "package": package})
+        state.setdefault("events", []).append({
+            "node": "infer_init_params",
+            "ok": True,
+            "modid": modid,
+            "group": group,
+            "package": package,
+            "framework": state.get("framework"),
+            "mc_version": state.get("mc_version"),
+        })
         return state
     return infer_init_params

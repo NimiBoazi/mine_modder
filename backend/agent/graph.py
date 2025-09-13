@@ -5,6 +5,54 @@ from langchain_core.runnables import RunnableLambda
 from dotenv import load_dotenv
 from pathlib import Path
 
+import os
+
+# Progress logging wrappers for long-running tests
+# Enable by setting environment variable MM_PROGRESS_LOG=1
+
+def _snapshot_lines(tag: str, s: dict) -> list[str]:
+    cm = (s.get("current_milestone") or {}) if isinstance(s, dict) else {}
+    ct = (s.get("current_task") or {}) if isinstance(s, dict) else {}
+    mq = (s.get("milestones_queue") or []) if isinstance(s, dict) else []
+    tq = (s.get("task_queue") or []) if isinstance(s, dict) else []
+    last_ev = (s.get("events") or [{}])[-1] if isinstance(s, dict) and s.get("events") else {}
+    artifacts = (s.get("artifacts") or {}) if isinstance(s, dict) else {}
+    gradle_ok = (artifacts.get("gradle_smoke") or {}).get("ok") if isinstance(artifacts, dict) else None
+    return [
+        f"===== {tag} =====",
+        f"node: {last_ev.get('node')}",
+        f"workspace: {s.get('workspace_path') if isinstance(s, dict) else None}",
+        f"effective_mc_version: {s.get('effective_mc_version') if isinstance(s, dict) else None}",
+        f"items_initialized: {s.get('items_initialized') if isinstance(s, dict) else None}",
+        f"milestones_queue_len: {len(mq)} current_milestone: {{'id': {cm.get('id')}, 'title': {cm.get('title')}, 'order': {cm.get('order')}}}",
+        f"task_queue_len: {len(tq)} current_task: {{'type': {ct.get('type')}, 'title': {ct.get('title')}}}",
+        f"gradle_ok: {gradle_ok}",
+    ]
+
+
+def _maybe_wrap(name: str, fn):
+    flag = os.getenv("MM_PROGRESS_LOG")
+    if not flag or flag.strip().lower() not in {"1", "true", "yes", "on"}:
+        return fn
+
+    def _wrapped(state):
+        res = fn(state)
+        try:
+            lines = _snapshot_lines(name, res)
+            for ln in lines:
+                print(ln, flush=True)
+            log_dir = Path("runs/test_logs")
+            log_dir.mkdir(parents=True, exist_ok=True)
+            with (log_dir / "full_pipeline_run.log").open("a", encoding="utf-8") as fh:
+                for ln in lines:
+                    fh.write(ln + "\n")
+                fh.flush()
+        except Exception:
+            pass
+        return res
+
+    return _wrapped
+
 from .state import AgentState
 from .providers.llm import build_name_desc_extractor
 
@@ -13,15 +61,13 @@ from .nodes.intake import intake
 from .nodes.ensure_workspace import ensure_workspace
 from .nodes.infer_init_params import make_infer_init_params_node
 from .nodes.init_subgraph import init_subgraph
-from .nodes.planner import planner_node
-from .nodes.next_task import next_task
+from .nodes.plan_high_level import high_level_outline_node
+from .nodes.plan_next_tasks import next_task_planner_node
 from .nodes.handle_result import handle_result
 from .nodes.summarize_and_finish import summarize_and_finish
 from .nodes.verify_task import verify_task
 
 # Item Pipeline Imports
-from .nodes.item_entry import item_entry
-from .nodes.item_init import items_init_guard
 from .nodes.item_subgraph import item_subgraph
 
 # Subgraph stubs
@@ -32,9 +78,7 @@ from .nodes.weather_subgraph import weather_subgraph
 from .nodes.qa_subgraph import qa_subgraph
 
 # Routing Imports
-from .nodes.router import route_task_skeleton
-from .nodes.item_route import route_item_init
-from .nodes.decide_after_result import decide_after_result
+from .nodes.router import route_task
 
 def build_graph():
     BACKEND_ENV = Path(__file__).resolve().parents[1] / ".env"
@@ -43,21 +87,19 @@ def build_graph():
 
     name_desc_extractor = build_name_desc_extractor()
 
-    # Register nodes
-    g.add_node("intake", RunnableLambda(intake))
-    g.add_node("ensure_workspace", RunnableLambda(ensure_workspace))
-    g.add_node("infer_init_params", RunnableLambda(make_infer_init_params_node(name_desc_extractor)))
-    g.add_node("init_subgraph", RunnableLambda(init_subgraph))
-    g.add_node("planner", RunnableLambda(planner_node))
-    g.add_node("next_task", RunnableLambda(next_task))
-    g.add_node("handle_result", RunnableLambda(handle_result))
-    g.add_node("summarize_and_finish", RunnableLambda(summarize_and_finish))
-    g.add_node("verify_task", RunnableLambda(verify_task))
-    
+    # Register nodes (optionally wrapped for progress logging)
+    g.add_node("intake", RunnableLambda(_maybe_wrap("intake", intake)))
+    g.add_node("ensure_workspace", RunnableLambda(_maybe_wrap("ensure_workspace", ensure_workspace)))
+    g.add_node("infer_init_params", RunnableLambda(_maybe_wrap("infer_init_params", make_infer_init_params_node(name_desc_extractor))))
+    g.add_node("init_subgraph", RunnableLambda(_maybe_wrap("init_subgraph", init_subgraph)))
+    g.add_node("plan_high_level", RunnableLambda(_maybe_wrap("plan_high_level", high_level_outline_node)))
+    g.add_node("plan_next_tasks", RunnableLambda(_maybe_wrap("plan_next_tasks", next_task_planner_node)))
+    g.add_node("handle_result", RunnableLambda(_maybe_wrap("handle_result", handle_result)))
+    g.add_node("summarize_and_finish", RunnableLambda(_maybe_wrap("summarize_and_finish", summarize_and_finish)))
+    g.add_node("verify_task", RunnableLambda(_maybe_wrap("verify_task", verify_task)))
+
     # Item pipeline
-    g.add_node("item_entry", RunnableLambda(item_entry))
-    g.add_node("items_init_guard", RunnableLambda(items_init_guard))
-    g.add_node("item_subgraph", RunnableLambda(item_subgraph))
+    g.add_node("item_subgraph", RunnableLambda(_maybe_wrap("item_subgraph", item_subgraph)))
 
     # Task subgraphs
     g.add_node("block_subgraph", RunnableLambda(block_subgraph))
@@ -72,31 +114,38 @@ def build_graph():
     g.add_edge("ensure_workspace", "infer_init_params")
 
     def route_workspace(state: AgentState) -> str:
-        return "init_subgraph" if state.get("_needs_init") else "planner"
+        return "init_subgraph" if state.get("_needs_init") else "plan_high_level"
 
-    g.add_conditional_edges("infer_init_params", route_workspace, {"init_subgraph": "init_subgraph", "planner": "planner"})
-    g.add_edge("init_subgraph", "planner")
-    g.add_edge("planner", "next_task")
+    g.add_conditional_edges("infer_init_params", route_workspace, {"init_subgraph": "init_subgraph", "plan_high_level": "plan_high_level"})
+    g.add_edge("init_subgraph", "plan_high_level")
 
-    g.add_conditional_edges("next_task", route_task_skeleton, {
-        "item_entry": "item_entry",
-        "block_subgraph": "block_subgraph",
-        "mob_subgraph": "mob_subgraph",
-        "biome_subgraph": "biome_subgraph",
-        "weather_subgraph": "weather_subgraph",
-        "qa_subgraph": "qa_subgraph",
-        "summarize_and_finish": "summarize_and_finish",
+    # After outlining, route based on queues
+    g.add_conditional_edges("plan_high_level", route_task, {
+        "plan_next_tasks": "plan_next_tasks",
+        "item_subgraph": "item_subgraph",
         "handle_result": "handle_result",
+        "summarize_and_finish": "summarize_and_finish",
     })
-    
-    g.add_conditional_edges("item_entry", route_item_init, {"items_init_guard": "items_init_guard", "item_subgraph": "item_subgraph"})
-    g.add_edge("items_init_guard", "item_subgraph")
+
+    # Plan next tasks then route again
+    g.add_conditional_edges("plan_next_tasks", route_task, {
+        "plan_next_tasks": "plan_next_tasks",
+        "item_subgraph": "item_subgraph",
+        "handle_result": "handle_result",
+        "summarize_and_finish": "summarize_and_finish",
+    })
 
     for sub in ("item_subgraph", "block_subgraph", "mob_subgraph", "biome_subgraph", "weather_subgraph", "qa_subgraph"):
         g.add_edge(sub, "verify_task")
     g.add_edge("verify_task", "handle_result")
 
-    g.add_conditional_edges("handle_result", decide_after_result, {"next_task": "next_task", "summarize_and_finish": "summarize_and_finish"})
+    # After handling result, route to next step or finish
+    g.add_conditional_edges("handle_result", route_task, {
+        "plan_next_tasks": "plan_next_tasks",
+        "item_subgraph": "item_subgraph",
+        "handle_result": "handle_result",
+        "summarize_and_finish": "summarize_and_finish",
+    })
     g.add_edge("summarize_and_finish", END)
 
     return g.compile()

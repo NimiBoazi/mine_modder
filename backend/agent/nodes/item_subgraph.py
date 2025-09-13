@@ -15,6 +15,8 @@ from backend.agent.providers.paths import (
 )
 # NEW: LLM provider for item schema
 from backend.agent.providers.item_schema import build_item_schema_extractor
+from backend.agent.nodes.item_init import items_init_guard
+
 
 # Anchor constants colocated here for clarity
 REG_BEGIN = "// ==MM:ITEM_REGISTRATIONS_BEGIN=="
@@ -185,6 +187,11 @@ def item_subgraph(state: AgentState) -> AgentState:
     state["items"] = items
     state["current_item_id"] = item_id
     state["item"] = persisted
+    # Ensure item init ran once (creates ModItems.java and main class with anchors)
+    if not state.get("items_initialized"):
+        state = items_init_guard(state)
+
+
 
     # === Continue with deterministic file updates using provided schema ===
     ctx = {
