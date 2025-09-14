@@ -12,6 +12,7 @@ class ItemSchema:
 
     item_id: str
     display_name: str
+    texture_prompt: str
 
     add_to_creative: bool
     creative_tab_key: str  # e.g., "CreativeModeTabs.INGREDIENTS"
@@ -72,6 +73,7 @@ class ItemSchema:
             "item_id": self.item_id,
             "registry_constant": self.registry_constant,
             "display_name": self.display_name,
+            "texture_prompt": self.texture_prompt,
 
             "add_to_creative": self.add_to_creative,
             "creative_tab_key": self.creative_tab_key,

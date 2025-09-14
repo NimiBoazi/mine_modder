@@ -50,22 +50,25 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
     by only changing the prompt, not this code.
     """
     system = SystemMessage(content=(
-        "You are an expert Minecraft modding assistant. Derive a SINGLE item's schema "
-        "from a specific item task, using the overall mod prompt for context.\n"
-        "Return STRICT JSON (no markdown, no extra text). Do not include code fences.\n\n"
-        "Schema to return (keys shown; add only if relevant):\n"
-        "{\n"
-        '  "item_id": "lower_snake_case_id",  // REQUIRED; ^[a-z0-9_./-]+$\n'
-        '  "display_name": "Title Cased Name",\n'
-        '  "add_to_creative": true,\n'
-        '  "creative_tab_key": "CreativeModeTabs.INGREDIENTS",\n'
-        '  "model_parent": "minecraft:item/generated"\n'
-        "}\n"
-        "Rules:\n"
-        "- The response MUST be a single valid JSON object. No prose, no explanation.\n"
-        "- item_id MUST reflect the item mentioned in the task within the mod context.\n"
-        "- If you cannot determine a valid item_id, return an empty JSON object {}."
-    ))
+    "You are an expert Minecraft modding assistant. Derive a SINGLE item's schema "
+    "from a specific item task, using the overall mod prompt for context.\n"
+    "Return STRICT JSON (no markdown, no extra text). Do not include code fences.\n\n"
+    "Schema to return (keys shown; add only if relevant; fields marked REQUIRED must appear):\n"
+    "{\n"
+    '  "item_id": "lower_snake_case_id",  // REQUIRED; ^[a-z0-9_./-]+$\n'
+    '  "display_name": "Title Cased Name",\n'
+    '  "add_to_creative": true,\n'
+    '  "creative_tab_key": "CreativeModeTabs.INGREDIENTS",\n'
+    '  "model_parent": "minecraft:item/generated",\n'
+    '  "texture_prompt": "concise description for 16x16 pixel-art item texture"  // REQUIRED\n'
+    "}\n"
+    "Rules:\n"
+    "- The response MUST be a single valid JSON object. No prose, no explanation.\n"
+    "- item_id MUST reflect the item mentioned in the task within the mod context.\n"
+    "- texture_prompt MUST be concise (<= 12 words), nouns/adjectives only, describe color/material/pattern;\n"
+    "  no camera/lighting/style terms; avoid the words 'minecraft', 'pixel art', or 'texture'.\n"
+    "- If you cannot determine a valid item_id, return an empty JSON object {}."
+))
 
     def _run(payload: ItemExtractorInput) -> Dict[str, Any]:
         task = payload.get("task", "")
@@ -91,10 +94,12 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
         # Build full schema: only item_id/display_name from LLM, everything else deterministic
         item_id = data["item_id"].strip()
         display_name = data.get("display_name") or _title_from_id(item_id)
+        texture_prompt = data.get("texture_prompt")
 
         full: Dict[str, Any] = {
             "item_id": item_id,
             "display_name": display_name,
+            "texture_prompt": texture_prompt,
             # Deterministic defaults (ignore any LLM-provided values for these)
             "add_to_creative": True,
             "creative_tab_key": "CreativeModeTabs.INGREDIENTS",

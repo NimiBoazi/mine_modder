@@ -15,6 +15,8 @@ from backend.agent.providers.paths import (
 )
 # NEW: LLM provider for item schema
 from backend.agent.providers.item_schema import build_item_schema_extractor
+from backend.agent.providers.image_gen import build_item_texture_generator
+
 from backend.agent.nodes.item_init import items_init_guard
 
 
@@ -267,6 +269,36 @@ def item_subgraph(state: AgentState) -> AgentState:
     storage.ensure_dir(model_path.parent)
     prev = storage.read_text(model_path) if storage.exists(model_path) else None
     storage.write_text(model_path, model_json, encoding="utf-8")
+
+    # 4.5) Texture generation (optional, if a prompt is provided and provider is configured)
+    texture_prompt = (
+        item_schema.get("texture_prompt")
+    )
+    texture_prompt = texture_prompt.strip() if isinstance(texture_prompt, str) else ""
+
+    gen = build_item_texture_generator()
+    if gen is not None and texture_prompt:
+        try:
+            # Do not overwrite if a texture already exists
+            if storage.exists(texture_png):
+                notes.append(f"Texture already exists, skipped generation: {texture_png}")
+            else:
+                result = gen.invoke({
+                    "prompt": texture_prompt,
+                    "width": 16,
+                    "height": 16,
+                    "num_images": 1,
+                    "prompt_style": "rd_fast__mc_item",
+                })
+                img_bytes = result.get("image_bytes") if isinstance(result, dict) else None
+                if isinstance(img_bytes, (bytes, bytearray)):
+                    storage.write_bytes(texture_png, bytes(img_bytes))
+                    changed.append(str(texture_png))
+                else:
+                    notes.append("Texture generator returned no image bytes; skipping save.")
+        except Exception as e:
+            notes.append(f"Texture generation failed: {e}")
+
     if prev != model_json:
         changed.append(str(model_path))
 
