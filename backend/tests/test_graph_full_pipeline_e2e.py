@@ -30,7 +30,7 @@ def test_full_graph_runs_with_only_prompt():
 
     # Provide only the user's prompt
     initial_state: Dict[str, Any] = {
-        "user_input": "Add sapphire and alexandrite items to my mod.",
+        "user_input": "Add a sapphire and alexandrite item to my mod.",
     }
 
     # Single invoke; per-node logging is handled by the graph wrappers via MM_PROGRESS_LOG

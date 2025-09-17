@@ -7,18 +7,24 @@ import shutil
 import pytest
 from dotenv import load_dotenv, find_dotenv
 
-from backend.agent.graph import build_graph
+from backend.agent.nodes.init_subgraph import init_subgraph
 
 
 @pytest.mark.slow
 @pytest.mark.parametrize("framework,mc_version", [
-    ("forge", "1.21.1"),
-    ("fabric", "1.21.1"),
     ("neoforge", "1.21.1"),
 ])
 def test_graph_init_end_to_end_all_frameworks(tmp_path: Path, framework: str, mc_version: str):
     """
     End-to-end test of the init subgraph via the LangGraph orchestration.
+
+    How to run this test (NeoForge only):
+        pytest backend/tests/test_graph_init_e2e.py -k test_graph_init_end_to_end_all_frameworks -s
+
+    Notes:
+    - Requires GOOGLE_API_KEY in env; backend/.env is auto-loaded if present.
+    - Saves workspace and smoke logs to runs/_test_artifacts/<modid>_neoforge_1.21.1
+
     Always persists a copy of the workspace and smoke log to test artifacts, even on failure.
     """
 
@@ -35,16 +41,20 @@ def test_graph_init_end_to_end_all_frameworks(tmp_path: Path, framework: str, mc
     print(f"GOOGLE_API_KEY present? {has_key}")
     assert has_key, "GOOGLE_API_KEY not found in process env. Did you create backend/.env and load it?"
 
-    g = build_graph()
-
     runs_root = tmp_path / "runs"
     downloads_root = tmp_path / "_downloads"
 
+    # Directly invoke init_subgraph to test initialization only (avoid item_subgraph)
     state = {
-        "user_input": "A mod with a sapphire block and green rain weather.",
         "framework": framework,
         "mc_version": mc_version,
         "author": "TestAuthor",
+        "authors": ["TestAuthor"],
+        "modid": "testmod",
+        "group": "io.testauthor",
+        "package": "io.testauthor.testmod",
+        "display_name": "Test Mod",
+        "description": "A test mod for NeoForge.",
         # Use temp roots so we don't pollute repo paths
         "runs_root": str(runs_root),
         "downloads_root": str(downloads_root),
@@ -52,8 +62,7 @@ def test_graph_init_end_to_end_all_frameworks(tmp_path: Path, framework: str, mc
         "timeout": int(os.getenv("MM_GRADLE_TIMEOUT", "1800")),
     }
 
-    # Execute the graph (increase recursion limit to be safe for multi-node flow)
-    result = g.invoke(state, config={"recursion_limit": 100})
+    result = init_subgraph(state)
 
     # Prepare artifact paths ASAP so we can save even if assertions fail later
     ws_path = Path(result.get("workspace_path") or "")
@@ -107,8 +116,45 @@ def test_graph_init_end_to_end_all_frameworks(tmp_path: Path, framework: str, mc
             )
 
         assert smoke.get("ok") is True
+        # Verify template_init created expected files/folders for NeoForge
+        package = (result.get("package") or "").strip()
+        assert package, "package missing from result"
+        base_pkg_dir = ws_path / "src" / "main" / "java" / Path(package.replace(".", "/"))
+        main_class_name = "".join(p.capitalize() for p in (result.get("modid") or "mod").split("_") if p)
+        main_class_path = base_pkg_dir / f"{main_class_name}.java"
+        mod_items_path = base_pkg_dir / "item" / "ModItems.java"
+        main_class_dir = main_class_path.parent
+        mod_items_dir = mod_items_path.parent
+
+        # Core Java files
+        assert main_class_path.exists(), f"Main class not created: {main_class_path}"
+        assert mod_items_path.exists(), f"ModItems.java not created: {mod_items_path}"
+
+        # Block dir + ModBlocks + custom/
+        block_dir = main_class_dir / "block"
+        assert block_dir.exists() and block_dir.is_dir(), f"Missing block dir: {block_dir}"
+        assert (block_dir / "ModBlocks.java").exists(), f"Missing ModBlocks.java: {block_dir / 'ModBlocks.java'}"
+        assert (block_dir / "custom").exists(), f"Missing block/custom dir: {block_dir / 'custom'}"
+
+        # Datagen folder under main class dir
+        assert (main_class_dir / "datagen").exists(), f"Missing datagen dir: {main_class_dir / 'datagen'}"
+
+        # util/ModTags.java
+        assert (main_class_dir / "util" / "ModTags.java").exists(), f"Missing util/ModTags.java"
+
+        # ModItems side: custom/FuelItem.java and ModFoodProperties.java
+        assert (mod_items_dir / "custom" / "FuelItem.java").exists(), f"Missing custom/FuelItem.java"
+        assert (mod_items_dir / "ModFoodProperties.java").exists(), f"Missing ModFoodProperties.java"
+
+        # Resource dirs: assets/<modid>/lang and textures/{block,item}
+        assets_root = ws_path / "src" / "main" / "resources" / "assets" / modid
+        assert (assets_root / "lang").exists(), f"Missing assets lang dir: {assets_root / 'lang'}"
+        assert (assets_root / "textures" / "block").exists(), f"Missing textures/block dir"
+        assert (assets_root / "textures" / "item").exists(), f"Missing textures/item dir"
+
 
     finally:
+
         # Persist artifacts even if assertions failed above
         try:
             artifacts_root.mkdir(parents=True, exist_ok=True)

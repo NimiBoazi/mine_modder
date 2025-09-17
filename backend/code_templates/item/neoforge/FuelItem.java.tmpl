@@ -1,0 +1,26 @@
+package {{base_package}}.item.custom;
+
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeType;
+import org.jetbrains.annotations.Nullable;
+
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
+public class FuelItem extends Item {
+    private final int burnTime;
+
+    public FuelItem(Item.Properties properties, int burnTime) {
+        super(properties);
+        this.burnTime = burnTime;
+    }
+
+    @Override
+    public int getBurnTime(ItemStack itemStack, @Nullable RecipeType<?> recipeType) {
+        return this.burnTime;
+    }
+
+    // ==MM:FUEL_ITEM_HOOKS_BEGIN==
+    // ==MM:FUEL_ITEM_HOOKS_END==
+}

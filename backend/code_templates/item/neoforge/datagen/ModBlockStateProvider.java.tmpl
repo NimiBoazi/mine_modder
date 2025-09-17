@@ -1,0 +1,117 @@
+package {{base_package}}.datagen;
+
+import {{base_package}}.{{main_class_name}};
+import {{base_package}}.block.ModBlocks;
+import net.minecraft.data.PackOutput;
+import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
+import net.neoforged.neoforge.client.model.generators.ModelFile;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import net.neoforged.neoforge.registries.DeferredBlock;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
+
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
+public class ModBlockStateProvider extends BlockStateProvider {
+    public ModBlockStateProvider(PackOutput output, ExistingFileHelper exFileHelper) {
+        super(output, {{main_class_name}}.MOD_ID, exFileHelper);
+    }
+
+    @Override
+    protected void registerStatesAndModels() {
+
+        // ==MM:BLOCKSTATE_MAPPINGS_BEGIN==
+        // Put your standard blockstate/model mappings here. Examples:
+        //
+        // --- Simple “cube all” blocks (also generates item model via helper below) ---
+        // blockWithItem(ModBlocks.EXAMPLE_BLOCK);
+        // blockWithItem(ModBlocks.EXAMPLE_ORE);
+        // blockWithItem(ModBlocks.EXAMPLE_DEEPSLATE_ORE);
+        //
+        // --- Stairs / Slab using a base texture ---
+        // stairsBlock(ModBlocks.EXAMPLE_STAIRS.get(), blockTexture(ModBlocks.EXAMPLE_BLOCK.get()));
+        // slabBlock(
+        //     ModBlocks.EXAMPLE_SLAB.get(),
+        //     blockTexture(ModBlocks.EXAMPLE_BLOCK.get()),
+        //     blockTexture(ModBlocks.EXAMPLE_BLOCK.get())
+        // );
+        //
+        // --- Buttons / Pressure Plates using a base texture ---
+        // buttonBlock(ModBlocks.EXAMPLE_BUTTON.get(), blockTexture(ModBlocks.EXAMPLE_BLOCK.get()));
+        // pressurePlateBlock(ModBlocks.EXAMPLE_PRESSURE_PLATE.get(), blockTexture(ModBlocks.EXAMPLE_BLOCK.get()));
+        //
+        // --- Fences / Gates / Walls using a base texture ---
+        // fenceBlock(ModBlocks.EXAMPLE_FENCE.get(), blockTexture(ModBlocks.EXAMPLE_BLOCK.get()));
+        // fenceGateBlock(ModBlocks.EXAMPLE_FENCE_GATE.get(), blockTexture(ModBlocks.EXAMPLE_BLOCK.get()));
+        // wallBlock(ModBlocks.EXAMPLE_WALL.get(), blockTexture(ModBlocks.EXAMPLE_BLOCK.get()));
+        //
+        // --- Doors / Trapdoors (with render type) ---
+        // doorBlockWithRenderType(
+        //     ModBlocks.EXAMPLE_DOOR.get(),
+        //     modLoc("block/example_door_bottom"),
+        //     modLoc("block/example_door_top"),
+        //     "cutout"
+        // );
+        // trapdoorBlockWithRenderType(
+        //     ModBlocks.EXAMPLE_TRAPDOOR.get(),
+        //     modLoc("block/example_trapdoor"),
+        //     true,  // orientable
+        //     "cutout"
+        // );
+        // ==MM:BLOCKSTATE_MAPPINGS_END==
+
+
+        // ==MM:BLOCK_ITEM_MODELS_BEGIN==
+        // Put item model overrides for blocks here (if not covered by blockWithItem()).
+        // Examples:
+        // blockItem(ModBlocks.EXAMPLE_STAIRS);
+        // blockItem(ModBlocks.EXAMPLE_SLAB);
+        // blockItem(ModBlocks.EXAMPLE_PRESSURE_PLATE);
+        // blockItem(ModBlocks.EXAMPLE_FENCE_GATE);
+        // blockItem(ModBlocks.EXAMPLE_TRAPDOOR, "_bottom"); // common for trapdoors
+        // ==MM:BLOCK_ITEM_MODELS_END==
+
+
+        // ==MM:BLOCKSTATE_VARIANTS_BEGIN==
+        // Put custom variant/conditional state models here. Example pattern:
+        //
+        // getVariantBuilder(ModBlocks.EXAMPLE_LAMP.get()).forAllStates(state -> {
+        //     boolean on = state.getValue(ExampleLampBlock.LIT);
+        //     return new ConfiguredModel[] {
+        //         new ConfiguredModel(
+        //             models().cubeAll(
+        //                 on ? "example_lamp_on" : "example_lamp_off",
+        //                 modLoc("block/" + (on ? "example_lamp_on" : "example_lamp_off"))
+        //             )
+        //         )
+        //     };
+        // });
+        //
+        // simpleBlockItem(
+        //     ModBlocks.EXAMPLE_LAMP.get(),
+        //     models().cubeAll("example_lamp_on", modLoc("block/example_lamp_on"))
+        // );
+        // ==MM:BLOCKSTATE_VARIANTS_END==
+    }
+
+    // --- Helpers ---
+
+    private void blockWithItem(DeferredBlock<?> deferredBlock) {
+        simpleBlockWithItem(deferredBlock.get(), cubeAll(deferredBlock.get()));
+    }
+
+    private void blockItem(DeferredBlock<?> deferredBlock) {
+        simpleBlockItem(
+            deferredBlock.get(),
+            new ModelFile.UncheckedModelFile({{main_class_name}}.MOD_ID + ":block/" + deferredBlock.getId().getPath())
+        );
+    }
+
+    private void blockItem(DeferredBlock<?> deferredBlock, String appendix) {
+        simpleBlockItem(
+            deferredBlock.get(),
+            new ModelFile.UncheckedModelFile({{main_class_name}}.MOD_ID + ":block/" + deferredBlock.getId().getPath() + appendix)
+        );
+    }
+}

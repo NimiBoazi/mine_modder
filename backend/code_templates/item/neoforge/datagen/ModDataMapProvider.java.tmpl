@@ -1,0 +1,33 @@
+package {{base_package}}.datagen;
+
+import {{base_package}}.item.ModItems;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.data.PackOutput;
+import net.neoforged.neoforge.common.data.DataMapProvider;
+import net.neoforged.neoforge.registries.datamaps.builtin.FurnaceFuel;
+import net.neoforged.neoforge.registries.datamaps.builtin.NeoForgeDataMaps;
+
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
+import java.util.concurrent.CompletableFuture;
+
+public class ModDataMapProvider extends DataMapProvider {
+    protected ModDataMapProvider(PackOutput packOutput, CompletableFuture<HolderLookup.Provider> lookupProvider) {
+        super(packOutput, lookupProvider);
+    }
+
+    @Override
+    protected void gather() {
+        // ==MM:DATAMAP_REGISTRATIONS_BEGIN==
+        // Examples:
+        // this.builder(NeoForgeDataMaps.FURNACE_FUELS)
+        //     .add(ModItems.EXAMPLE_FUEL.getId(), new FurnaceFuel(1200), false)
+        //     .add(ModItems.ANOTHER_FUEL.getId(), new FurnaceFuel(2400), false);
+        //
+        // // Additional datamaps can be registered with more builder(...) calls here.
+        // // this.builder(NeoForgeDataMaps.SOME_OTHER_MAP)
+        // //     .add(...);
+        // ==MM:DATAMAP_REGISTRATIONS_END==
+    }
+}

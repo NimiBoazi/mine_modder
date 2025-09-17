@@ -127,6 +127,12 @@ def java_base_package_dir(ws: Path, base_package: str) -> Path:
 def main_class_file(ws: Path, base_package: str, main_class_name: str) -> Path:
     return java_base_package_dir(ws, base_package) / f"{main_class_name}.java"
 
+def main_class_dir(ws: Path, base_package: str, main_class_name: str) -> Path:
+    return main_class_file(ws, base_package, main_class_name).parent
+
+def mod_items_dir(ws: Path, base_package: str) -> Path:
+    return mod_items_file(ws, base_package).parent
+
 def mod_items_file(ws: Path, base_package: str) -> Path:
     return java_base_package_dir(ws, base_package) / "item" / "ModItems.java"
 
@@ -178,7 +184,9 @@ __all__ = [
     "resources_root",
     "java_base_package_dir",
     "main_class_file",
+    "main_class_dir",
     "mod_items_file",
+    "mod_items_dir",
     "assets_dir",
     "lang_file",
     "model_file",

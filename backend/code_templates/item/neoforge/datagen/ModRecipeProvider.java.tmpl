@@ -1,0 +1,96 @@
+package {{base_package}}.datagen;
+
+import {{base_package}}.{{main_class_name}};
+import {{base_package}}.block.ModBlocks;
+import {{base_package}}.item.ModItems;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.data.PackOutput;
+import net.minecraft.data.recipes.*;
+import net.minecraft.world.item.crafting.*;
+import net.minecraft.world.level.ItemLike;
+import net.neoforged.neoforge.common.conditions.IConditionBuilder;
+
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
+public class ModRecipeProvider extends RecipeProvider implements IConditionBuilder {
+    public ModRecipeProvider(PackOutput output, CompletableFuture<HolderLookup.Provider> registries) {
+        super(output, registries);
+    }
+
+    @Override
+    protected void buildRecipes(RecipeOutput recipeOutput) {
+        // ==MM:RECIPE_DEFINITIONS_BEGIN==
+        // Examples (replace with your mod’s recipes):
+        //
+        // // -- Example: shaped block from ingots --
+        // ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModBlocks.EXAMPLE_BLOCK.get())
+        //         .pattern("III")
+        //         .pattern("III")
+        //         .pattern("III")
+        //         .define('I', ModItems.EXAMPLE_INGOT.get())
+        //         .unlockedBy("has_example_ingot", has(ModItems.EXAMPLE_INGOT)).save(recipeOutput);
+        //
+        // // -- Example: shapeless ingots from block --
+        // ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ModItems.EXAMPLE_INGOT.get(), 9)
+        //         .requires(ModBlocks.EXAMPLE_BLOCK)
+        //         .unlockedBy("has_example_block", has(ModBlocks.EXAMPLE_BLOCK)).save(recipeOutput);
+        //
+        // // -- Example: custom ID for a recipe (use your mod id automatically in oreCooking helpers) --
+        // // ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, ModItems.EXAMPLE_INGOT.get(), 18)
+        // //         .requires(ModBlocks.EXAMPLE_MAGIC_BLOCK)
+        // //         .unlockedBy("has_example_magic_block", has(ModBlocks.EXAMPLE_MAGIC_BLOCK))
+        // //         .save(recipeOutput, {{main_class_name}}.MOD_ID + ":example_from_magic_block");
+        //
+        // // -- Example: smelting & blasting from a list of inputs --
+        // List<ItemLike> EXAMPLE_SMELTABLES = List.of(ModItems.RAW_EXAMPLE, ModBlocks.EXAMPLE_ORE, ModBlocks.EXAMPLE_DEEPSLATE_ORE);
+        // oreSmelting(recipeOutput, EXAMPLE_SMELTABLES, RecipeCategory.MISC, ModItems.EXAMPLE_INGOT.get(), 0.25f, 200, "example");
+        // oreBlasting(recipeOutput, EXAMPLE_SMELTABLES, RecipeCategory.MISC, ModItems.EXAMPLE_INGOT.get(), 0.25f, 100, "example");
+        //
+        // // -- Example: shaped building parts using helpers from RecipeProvider --
+        // stairBuilder(ModBlocks.EXAMPLE_STAIRS.get(), Ingredient.of(ModItems.EXAMPLE_INGOT)).group("example")
+        //         .unlockedBy("has_example", has(ModItems.EXAMPLE_INGOT)).save(recipeOutput);
+        // slab(recipeOutput, RecipeCategory.BUILDING_BLOCKS, ModBlocks.EXAMPLE_SLAB.get(), ModItems.EXAMPLE_INGOT.get());
+        //
+        // buttonBuilder(ModBlocks.EXAMPLE_BUTTON.get(), Ingredient.of(ModItems.EXAMPLE_INGOT.get())).group("example")
+        //         .unlockedBy("has_example", has(ModItems.EXAMPLE_INGOT.get())).save(recipeOutput);
+        // pressurePlate(recipeOutput, ModBlocks.EXAMPLE_PRESSURE_PLATE.get(), ModItems.EXAMPLE_INGOT.get());
+        //
+        // fenceBuilder(ModBlocks.EXAMPLE_FENCE.get(), Ingredient.of(ModItems.EXAMPLE_INGOT.get())).group("example")
+        //         .unlockedBy("has_example", has(ModItems.EXAMPLE_INGOT.get())).save(recipeOutput);
+        // fenceGateBuilder(ModBlocks.EXAMPLE_FENCE_GATE.get(), Ingredient.of(ModItems.EXAMPLE_INGOT.get())).group("example")
+        //         .unlockedBy("has_example", has(ModItems.EXAMPLE_INGOT.get())).save(recipeOutput);
+        // wall(recipeOutput, RecipeCategory.BUILDING_BLOCKS, ModBlocks.EXAMPLE_WALL.get(), ModItems.EXAMPLE_INGOT.get());
+        //
+        // doorBuilder(ModBlocks.EXAMPLE_DOOR.get(), Ingredient.of(ModItems.EXAMPLE_INGOT.get())).group("example")
+        //         .unlockedBy("has_example", has(ModItems.EXAMPLE_INGOT.get())).save(recipeOutput);
+        // trapdoorBuilder(ModBlocks.EXAMPLE_TRAPDOOR.get(), Ingredient.of(ModItems.EXAMPLE_INGOT.get())).group("example")
+        //         .unlockedBy("has_example", has(ModItems.EXAMPLE_INGOT.get())).save(recipeOutput);
+        // ==MM:RECIPE_DEFINITIONS_END==
+    }
+
+    protected static void oreSmelting(RecipeOutput recipeOutput, List<ItemLike> pIngredients, RecipeCategory pCategory, ItemLike pResult,
+                                      float pExperience, int pCookingTime, String pGroup) {
+        oreCooking(recipeOutput, RecipeSerializer.SMELTING_RECIPE, SmeltingRecipe::new, pIngredients, pCategory, pResult,
+                pExperience, pCookingTime, pGroup, "_from_smelting");
+    }
+
+    protected static void oreBlasting(RecipeOutput recipeOutput, List<ItemLike> pIngredients, RecipeCategory pCategory, ItemLike pResult,
+                                      float pExperience, int pCookingTime, String pGroup) {
+        oreCooking(recipeOutput, RecipeSerializer.BLASTING_RECIPE, BlastingRecipe::new, pIngredients, pCategory, pResult,
+                pExperience, pCookingTime, pGroup, "_from_blasting");
+    }
+
+    protected static <T extends AbstractCookingRecipe> void oreCooking(RecipeOutput recipeOutput, RecipeSerializer<T> pCookingSerializer, AbstractCookingRecipe.Factory<T> factory,
+                                                                       List<ItemLike> pIngredients, RecipeCategory pCategory, ItemLike pResult, float pExperience, int pCookingTime, String pGroup, String pRecipeName) {
+        for (ItemLike itemlike : pIngredients) {
+            SimpleCookingRecipeBuilder.generic(Ingredient.of(itemlike), pCategory, pResult, pExperience, pCookingTime, pCookingSerializer, factory)
+                    .group(pGroup)
+                    .unlockedBy(getHasName(itemlike), has(itemlike))
+                    .save(recipeOutput, {{main_class_name}}.MOD_ID + ":" + getItemName(pResult) + pRecipeName + "_" + getItemName(itemlike));
+        }
+    }
+}

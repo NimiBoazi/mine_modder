@@ -1,0 +1,40 @@
+package {{base_package}}.datagen;
+
+import {{base_package}}.{{main_class_name}};
+import {{base_package}}.item.ModItems;
+import {{base_package}}.util.ModTags;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.data.PackOutput;
+import net.minecraft.data.tags.ItemTagsProvider;
+import net.minecraft.world.level.block.Block;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import org.jetbrains.annotations.Nullable;
+import net.minecraft.world.item.Items;
+import net.minecraft.data.tags.TagsProvider.TagLookup;
+
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
+import java.util.concurrent.CompletableFuture;
+
+public class ModItemTagProvider extends ItemTagsProvider {
+    public ModItemTagProvider(PackOutput output,
+                              CompletableFuture<HolderLookup.Provider> lookupProvider,
+                              CompletableFuture<TagLookup<Block>> blockTags,
+                              @Nullable ExistingFileHelper existingFileHelper) {
+        super(output, lookupProvider, blockTags, {{main_class_name}}.MOD_ID, existingFileHelper);
+    }
+
+    @Override
+    protected void addTags(HolderLookup.Provider provider) {
+        // ==MM:ITEM_TAGS_BEGIN==
+        // Examples:
+        // tag(ModTags.Items.TRANSFORMABLE_ITEMS)
+        //     .add(ModItems.EXAMPLE_INGOT.get())
+        //     .add(ModItems.EXAMPLE_GEM.get());
+        //
+        // // Mixing in vanilla items (requires Items import):
+        // // tag(ModTags.Items.TRANSFORMABLE_ITEMS).add(Items.STICK, Items.COMPASS);
+        // ==MM:ITEM_TAGS_END==
+    }
+}

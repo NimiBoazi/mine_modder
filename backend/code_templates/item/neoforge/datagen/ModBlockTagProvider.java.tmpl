@@ -1,0 +1,44 @@
+package {{base_package}}.datagen;
+
+import {{base_package}}.{{main_class_name}};
+import {{base_package}}.block.ModBlocks;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.data.PackOutput;
+import net.minecraft.tags.BlockTags;
+import net.neoforged.neoforge.common.data.BlockTagsProvider;
+import net.neoforged.neoforge.common.data.ExistingFileHelper;
+import org.jetbrains.annotations.Nullable;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.level.block.Block;
+
+import java.util.concurrent.CompletableFuture;
+
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
+public class ModBlockTagProvider extends BlockTagsProvider {
+    public ModBlockTagProvider(PackOutput output,
+                               CompletableFuture<HolderLookup.Provider> lookupProvider,
+                               @Nullable ExistingFileHelper existingFileHelper) {
+        super(output, lookupProvider, {{main_class_name}}.MOD_ID, existingFileHelper);
+    }
+
+    @Override
+    protected void addTags(HolderLookup.Provider provider) {
+        // ==MM:BLOCK_TAGS_BEGIN==
+        // Examples (delete/replace freely):
+        // tag(BlockTags.MINEABLE_WITH_PICKAXE)
+        //     .add(ModBlocks.EXAMPLE_BLOCK.get(), ModBlocks.EXAMPLE_ORE.get());
+        //
+        // tag(BlockTags.NEEDS_IRON_TOOL)
+        //     .add(ModBlocks.EXAMPLE_ORE_DEEPSLATE.get());
+        //
+        // tag(BlockTags.FENCES).add(ModBlocks.EXAMPLE_FENCE.get());
+        //
+        // // Custom tag example:
+        // // TagKey<Block> CUSTOM = TagKey.create(Registries.BLOCK, modLoc("custom_group"));
+        // // tag(CUSTOM).add(ModBlocks.EXAMPLE_BLOCK.get());
+        // ==MM:BLOCK_TAGS_END==
+    }
+}

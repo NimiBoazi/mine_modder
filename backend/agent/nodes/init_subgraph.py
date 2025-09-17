@@ -15,6 +15,8 @@ from ..tools.init.repositories import (
     enable_parchment_for_neoforge
 )
 from ..tools.init.gradle import smoke_build
+from .template_init import template_init
+
 
 def init_subgraph(state: AgentState) -> AgentState:
     """Run the real initialization pipeline using inferred params."""
@@ -55,6 +57,9 @@ def init_subgraph(state: AgentState) -> AgentState:
     # 3) Create workspace and copy
     ws = ws_create(runs_root, modid=modid, framework=framework, mc_version=mc_version)
     copy_from_extracted(root, ws)
+
+    # Expose workspace path to downstream nodes that expect it in state
+    state["workspace_path"] = str(ws)
 
     # 3b) Detect effective Minecraft version from the MDK workspace (prefer gradle.properties)
     detected_mc = detect_minecraft_version(ws)
@@ -97,6 +102,9 @@ def init_subgraph(state: AgentState) -> AgentState:
     elif framework == "neoforge":
         if detected_mc:
             enable_parchment_for_neoforge(ws, detected_mc)
+
+    # 6c) Generic templates initialization (second to last step before smoke test)
+    state = template_init(state)
 
     # 7) Gradle smoke build
     res = smoke_build(framework, ws, task_override=None, timeout=timeout)

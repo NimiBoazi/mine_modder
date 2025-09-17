@@ -1,6 +1,8 @@
 package {{base_package}};
 
 import {{base_package}}.item.ModItems;
+import {{base_package}}.block.ModBlocks;
+import {{base_package}}.Config;
 import net.minecraft.world.item.CreativeModeTabs;
 import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
@@ -35,6 +37,9 @@ public class {{main_class_name}} {
         // Register item registry
         ModItems.register(modEventBus);
 
+        // Register block registry
+        ModBlocks.register(modEventBus);
+
         // Creative tab population
         modEventBus.addListener(this::addCreative);
 
@@ -45,9 +50,18 @@ public class {{main_class_name}} {
     private void commonSetup(final FMLCommonSetupEvent event) {}
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == {{creative_tab_key}}) {
-            // ==MM:CREATIVE_ACCEPT_BEGIN==
-            // ==MM:CREATIVE_ACCEPT_END==
+        if(event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
+            // ==MM:CREATIVE_ITEM_ACCEPT_BEGIN==
+            // event.accept(ModItems.BISMUTH);
+            // event.accept(ModItems.RAW_BISMUTH);
+            // ==MM:CREATIVE_ITEM_ACCEPT_END==
+        }
+
+        if(event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
+            // ==MM:CREATIVE_BLOCK_ACCEPT_BEGIN==
+            // event.accept(ModBlocks.BISMUTH_BLOCK);
+            // event.accept(ModBlocks.BISMUTH_ORE);
+            // ==MM:CREATIVE_BLOCK_ACCEPT_END==
         }
     }
 

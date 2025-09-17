@@ -12,7 +12,7 @@ from backend.rag.retrieval.query_vector_store import query_vector_store
 
 # Config (env-driven)
 STORE = os.getenv("STORE_NAME", "minecraft_mods_custom_v1")
-QUERY = os.getenv("TEST_QUERY", "What files do I need to create a new block")
+QUERY = os.getenv("TEST_QUERY", "Change the hardness of a block")
 TOP_K = int(os.getenv("TOP_K", "1"))
 OUT_PATH = Path(os.getenv("OUTPUT_FILE", "") or (Path(__file__).resolve().parent / "query_results.txt"))
 

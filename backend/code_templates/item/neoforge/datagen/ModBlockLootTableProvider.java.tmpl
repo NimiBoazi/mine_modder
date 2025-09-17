@@ -1,0 +1,77 @@
+package {{base_package}}.datagen;
+
+import {{base_package}}.block.ModBlocks;
+import {{base_package}}.item.ModItems; // Likely needed by ore drops; safe to keep.
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.loot.BlockLootSubProvider;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.entries.LootItem;
+import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
+import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
+import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
+
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
+import java.util.Set;
+
+public class ModBlockLootTableProvider extends BlockLootSubProvider {
+    protected ModBlockLootTableProvider(HolderLookup.Provider registries) {
+        super(Set.of(), FeatureFlags.REGISTRY.allFlags(), registries);
+    }
+
+    @Override
+    protected void generate() {
+        // ==MM:BLOCK_LOOT_RULES_BEGIN==
+        // Put all block loot rules here. Examples:
+        //
+        // dropSelf(ModBlocks.EXAMPLE_BLOCK.get());
+        //
+        // add(ModBlocks.EXAMPLE_ORE.get(),
+        //     block -> createOreDrop(ModBlocks.EXAMPLE_ORE.get(), ModItems.EXAMPLE_RAW.get()));
+        //
+        // add(ModBlocks.EXAMPLE_DEEPSLATE_ORE.get(),
+        //     block -> createMultipleOreDrops(
+        //         ModBlocks.EXAMPLE_DEEPSLATE_ORE.get(),
+        //         ModItems.EXAMPLE_RAW.get(),
+        //         2, 5
+        //     ));
+        //
+        // add(ModBlocks.EXAMPLE_SLAB.get(),
+        //     block -> createSlabItemTable(ModBlocks.EXAMPLE_SLAB.get()));
+        //
+        // add(ModBlocks.EXAMPLE_DOOR.get(),
+        //     block -> createDoorTable(ModBlocks.EXAMPLE_DOOR.get()));
+        //
+        // dropSelf(ModBlocks.EXAMPLE_STAIRS.get());
+        // dropSelf(ModBlocks.EXAMPLE_BUTTON.get());
+        // dropSelf(ModBlocks.EXAMPLE_PRESSURE_PLATE.get());
+        // dropSelf(ModBlocks.EXAMPLE_FENCE.get());
+        // dropSelf(ModBlocks.EXAMPLE_FENCE_GATE.get());
+        // dropSelf(ModBlocks.EXAMPLE_WALL.get());
+        // dropSelf(ModBlocks.EXAMPLE_TRAPDOOR.get());
+        // dropSelf(ModBlocks.EXAMPLE_LAMP.get());
+        // ==MM:BLOCK_LOOT_RULES_END==
+    }
+
+    protected LootTable.Builder createMultipleOreDrops(Block pBlock, Item item, float minDrops, float maxDrops) {
+        HolderLookup.RegistryLookup<Enchantment> registrylookup =
+                this.registries.lookupOrThrow(Registries.ENCHANTMENT);
+        return this.createSilkTouchDispatchTable(pBlock,
+                this.applyExplosionDecay(pBlock, LootItem.lootTableItem(item)
+                        .apply(SetItemCountFunction.setCount(UniformGenerator.between(minDrops, maxDrops)))
+                        .apply(ApplyBonusCount.addOreBonusCount(registrylookup.getOrThrow(Enchantments.FORTUNE)))));
+    }
+
+    @Override
+    protected Iterable<Block> getKnownBlocks() {
+        return ModBlocks.BLOCKS.getEntries().stream().map(Holder::value)::iterator;
+    }
+}
