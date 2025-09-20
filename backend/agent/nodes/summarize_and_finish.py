@@ -1,6 +1,8 @@
 from ..state import AgentState
 
 def summarize_and_finish(state: AgentState) -> AgentState:
+    print("[ENTER] node:summarize_and_finish")
+
     # Summarize minimal info
     tasks = ((state.get("plan") or {}).get("tasks") or [])
     results = state.get("results") or {}

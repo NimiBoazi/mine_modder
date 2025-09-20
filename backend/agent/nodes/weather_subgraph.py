@@ -1,6 +1,8 @@
 from ..state import AgentState
 
 def weather_subgraph(state: AgentState) -> AgentState:
+    print("[ENTER] node:weather_subgraph")
+
     state.setdefault("results", {})
     task = state.get("current_task") or {}
     state["results"][task.get("id", "")] = {"ok": True, "notes": ["weather stub"]}

@@ -20,7 +20,12 @@ import net.minecraft.world.level.block.Blocks;
 import java.util.List;
 import java.util.Map;
 
+// ==MM:EXTRA_IMPORTS_BEGIN==
+// ==MM:EXTRA_IMPORTS_END==
+
 public class ChiselItem extends Item {
+    // ===== INSERT ANCHOR: STATIC_FIELDS =====
+    // <<INSERT:STATIC_FIELDS>>
     private static final Map<Block, Block> CHISEL_MAP =
             Map.of(
                     Blocks.STONE, Blocks.STONE_BRICKS,
@@ -28,20 +33,26 @@ public class ChiselItem extends Item {
                     Blocks.DEEPSLATE, Blocks.DEEPSLATE_BRICKS,
                     Blocks.GOLD_BLOCK, Blocks.IRON_BLOCK,
                     Blocks.IRON_BLOCK, Blocks.STONE,
-                    Blocks.NETHERRACK, ModBlocks.BISMUTH_BLOCK.get()
+                    Blocks.NETHERRACK, ModBlocks.{{example_block_registry_constant}}.get()
             );
+    // ===== END INSERT ANCHOR: STATIC_FIELDS =====
 
     public ChiselItem(Properties properties) {
         super(properties);
+        // ===== INSERT ANCHOR: CONSTRUCTOR_BODY =====
+        // <<INSERT:CONSTRUCTOR_BODY>>
+        // ===== END INSERT ANCHOR: CONSTRUCTOR_BODY =====
     }
 
+    // ===== INSERT ANCHOR: METHODS =====
+    // <<INSERT:METHODS>>
     @Override
     public InteractionResult useOn(UseOnContext context) {
         Level level = context.getLevel();
         Block clickedBlock = level.getBlockState(context.getClickedPos()).getBlock();
 
-        if(CHISEL_MAP.containsKey(clickedBlock)) {
-            if(!level.isClientSide()) {
+        if (CHISEL_MAP.containsKey(clickedBlock)) {
+            if (!level.isClientSide()) {
                 level.setBlockAndUpdate(context.getClickedPos(), CHISEL_MAP.get(clickedBlock).defaultBlockState());
 
                 context.getItemInHand().hurtAndBreak(1, ((ServerLevel) level), context.getPlayer(),
@@ -53,15 +64,5 @@ public class ChiselItem extends Item {
 
         return InteractionResult.SUCCESS;
     }
-
-    @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
-        if(Screen.hasShiftDown()) {
-            tooltipComponents.add(Component.translatable("tooltip.tutorialmod.chisel.shift_down"));
-        } else {
-            tooltipComponents.add(Component.translatable("tooltip.tutorialmod.chisel"));
-        }
-
-        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
-    }
+    // ===== END INSERT ANCHOR: METHODS =====
 }

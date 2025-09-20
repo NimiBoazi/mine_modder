@@ -50,18 +50,74 @@ public class {{main_class_name}} {
     private void commonSetup(final FMLCommonSetupEvent event) {}
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if(event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
-            // ==MM:CREATIVE_ITEM_ACCEPT_BEGIN==
-            // event.accept(ModItems.BISMUTH);
-            // event.accept(ModItems.RAW_BISMUTH);
-            // ==MM:CREATIVE_ITEM_ACCEPT_END==
+        // minecraft:ingredients
+        if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
+            // ==minecraft:ingredients_ACCEPT_BEGIN==
+            // event.accept(ModItems.EXAMPLE_INGOT);
+            // ==minecraft:ingredients_ACCEPT_END==
         }
 
-        if(event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-            // ==MM:CREATIVE_BLOCK_ACCEPT_BEGIN==
-            // event.accept(ModBlocks.BISMUTH_BLOCK);
-            // event.accept(ModBlocks.BISMUTH_ORE);
-            // ==MM:CREATIVE_BLOCK_ACCEPT_END==
+        // minecraft:building_blocks
+        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
+            // ==minecraft:building_blocks_ACCEPT_BEGIN==
+            // event.accept(ModBlocks.EXAMPLE_BLOCK);
+            // ==minecraft:building_blocks_ACCEPT_END==
+        }
+
+        // minecraft:colored_blocks
+        if (event.getTabKey() == CreativeModeTabs.COLORED_BLOCKS) {
+            // ==minecraft:colored_blocks_ACCEPT_BEGIN==
+            // event.accept(ModBlocks.EXAMPLE_WOOL);
+            // ==minecraft:colored_blocks_ACCEPT_END==
+        }
+
+        // minecraft:natural_blocks
+        if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
+            // ==minecraft:natural_blocks_ACCEPT_BEGIN==
+            // event.accept(ModBlocks.EXAMPLE_ORE);
+            // ==minecraft:natural_blocks_ACCEPT_END==
+        }
+
+        // minecraft:functional_blocks
+        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+            // ==minecraft:functional_blocks_ACCEPT_BEGIN==
+            // event.accept(ModBlocks.EXAMPLE_CRAFTING_STATION);
+            // ==minecraft:functional_blocks_ACCEPT_END==
+        }
+
+        // minecraft:redstone_blocks
+        if (event.getTabKey() == CreativeModeTabs.REDSTONE_BLOCKS) {
+            // ==minecraft:redstone_blocks_ACCEPT_BEGIN==
+            // event.accept(ModBlocks.EXAMPLE_REDSTONE_GADGET);
+            // ==minecraft:redstone_blocks_ACCEPT_END==
+        }
+
+        // minecraft:tools_and_utilities
+        if (event.getTabKey() == CreativeModeTabs.TOOLS_AND_UTILITIES) {
+            // ==minecraft:tools_and_utilities_ACCEPT_BEGIN==
+            // event.accept(ModItems.EXAMPLE_TOOL);
+            // ==minecraft:tools_and_utilities_ACCEPT_END==
+        }
+
+        // minecraft:combat
+        if (event.getTabKey() == CreativeModeTabs.COMBAT) {
+            // ==minecraft:combat_ACCEPT_BEGIN==
+            // event.accept(ModItems.EXAMPLE_SWORD);
+            // ==minecraft:combat_ACCEPT_END==
+        }
+
+        // minecraft:food_and_drinks
+        if (event.getTabKey() == CreativeModeTabs.FOOD_AND_DRINKS) {
+            // ==minecraft:food_and_drinks_ACCEPT_BEGIN==
+            // event.accept(ModItems.EXAMPLE_FOOD);
+            // ==minecraft:food_and_drinks_ACCEPT_END==
+        }
+
+        // minecraft:spawn_eggs
+        if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
+            // ==minecraft:spawn_eggs_ACCEPT_BEGIN==
+            // event.accept(ModItems.EXAMPLE_SPAWN_EGG);
+            // ==minecraft:spawn_eggs_ACCEPT_END==
         }
     }
 

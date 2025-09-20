@@ -38,6 +38,8 @@ def make_high_level_outline_wrapper(model: BaseChatModel) -> Runnable[Dict[str, 
     ))
 
     def _run(payload: Dict[str, str]) -> Dict[str, Any]:
+        print("[ENTER] wrapper:plan_outline")
+
         user_prompt = payload.get("user_prompt", "").strip()
         msg = HumanMessage(content=(
             "User prompt describing the desired Minecraft mod:\n\n" + user_prompt + "\n\n"

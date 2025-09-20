@@ -3,6 +3,8 @@ from ..utils.infer import slugify_modid, derive_group_from_authors, make_package
 
 def make_infer_init_params_node(name_desc_chain=None):
     def infer_init_params(state: AgentState) -> AgentState:
+        print("[ENTER] node:infer_init_params")
+
         user_prompt = state.get("user_input") or ""
         name = state.get("display_name")
         desc = state.get("description")

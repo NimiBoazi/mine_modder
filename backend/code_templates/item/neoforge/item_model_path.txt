@@ -1,1 +1,0 @@
-src/main/resources/assets/{{modid}}/models/item/{{item_id}}.json

@@ -30,6 +30,8 @@ def make_item_texture_generator(
     """
 
     def _run(payload: Dict[str, Any]) -> Dict[str, Any]:
+        print("[ENTER] wrapper:image_gen_item_texture")
+
         prompt = (payload.get("prompt") or "").strip()
         if not prompt:
             raise ValueError("Texture generator requires a non-empty 'prompt'.")

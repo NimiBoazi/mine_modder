@@ -182,7 +182,7 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
         "registry_constant": final_item["registry_constant"],
         "item_id": final_item["item_id"],
         "display_name": final_item["display_name"],
-        "model_parent": final_item["model_parent"],
+        "model_type": final_item["model_type"],
     })
     texture = texture_file(ws, framework, {
         "base_package": base_package,
@@ -192,7 +192,7 @@ def test_item_pipeline_manual(framework: str, mc_version: str):
         "registry_constant": final_item["registry_constant"],
         "item_id": final_item["item_id"],
         "display_name": final_item["display_name"],
-        "model_parent": final_item["model_parent"],
+        "model_type": final_item["model_type"],
     })
 
     assert mod_items.exists(), f"ModItems.java missing: {mod_items}"

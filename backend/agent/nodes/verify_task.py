@@ -3,6 +3,8 @@ from backend.agent.state import AgentState
 
 def verify_task(state: AgentState) -> AgentState:
     """Skeleton verification step that runs after every task subgraph."""
+    print("[ENTER] node:verify_task")
+
     task = state.get("current_task") or {}
     tid = task.get("id", "unknown")
     # TODO: implement real checks; for now record a pass

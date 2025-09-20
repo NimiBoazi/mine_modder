@@ -1,6 +1,8 @@
 from ..state import AgentState
 
 def qa_subgraph(state: AgentState) -> AgentState:
+    print("[ENTER] node:qa_subgraph")
+
     state.setdefault("results", {})
     task = state.get("current_task") or {}
     state["results"][task.get("id", "")] = {"ok": True, "answer": "(stub)"}

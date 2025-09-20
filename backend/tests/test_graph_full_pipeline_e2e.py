@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Any, Dict
 
 import os
+import shutil
+
 import pytest
 
 from backend.agent.graph import build_graph
@@ -17,20 +19,26 @@ def test_full_graph_runs_with_only_prompt():
     inferred or defaulted by the graph itself.
 
     Run from repo root:
-    
-    pytest -q backend/tests/test_graph_full_pipeline_e2e.py
+
+      pytest -s -q backend/tests/test_graph_full_pipeline_e2e.py
 
     This test executes the real initialization (downloads/extracts MDK, runs Gradle
     smoke task), real planning via providers, and the item subgraph. It requires
     network access and valid provider credentials (e.g., GOOGLE_API_KEY).
     """
+    # Clean slate: delete and recreate the runs folder for each test execution
+    runs_dir = Path("runs")
+    if runs_dir.exists():
+        shutil.rmtree(runs_dir, ignore_errors=True)
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
     # Enable per-node progress logging (also written to runs/test_logs/full_pipeline_run.log)
     os.environ["MM_PROGRESS_LOG"] = "1"
     g = build_graph()
 
     # Provide only the user's prompt
     initial_state: Dict[str, Any] = {
-        "user_input": "Add a sapphire and alexandrite item to my mod.",
+        "user_input": "create an flower that blooms when it touches the ground.",
     }
 
     # Single invoke; per-node logging is handled by the graph wrappers via MM_PROGRESS_LOG

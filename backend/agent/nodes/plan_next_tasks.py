@@ -2,75 +2,55 @@ from __future__ import annotations
 
 from typing import Dict, Any, List
 from backend.agent.state import AgentState
-from backend.agent.providers.plan_next_tasks import build_next_tasks_planner
+from backend.agent.providers.gpt5_provider import build_next_tasks_planner
 
 
 def next_task_planner_node(state: AgentState) -> AgentState:
     """
-    Pure node: consumes (user_input, plan) and produces a short-term milestone
-    with task_queue and sets current_task.
+    Pure node: consumes (user_input, optional available_tasks) and produces a
+    short-term task_queue and sets current_task.
 
     Expects:
-      - state['plan']: high-level outline (from high_level_outline_node)
+      - state['user_input']: the user's request / mod description
+      - optional state['available_tasks']: list of allowed task types/descriptors the planner may choose from
       - optional state['max_tasks'] (int)
+
     Produces:
-      - state['task_queue']: upcoming tasks (list of dict)
-      - state['current_task']: first task to execute
+      - state['task_queue']: planned tasks (list of dict)
+      - state['current_task']: first task to execute (dict or None)
     """
-    if not state.get("plan"):
-        raise RuntimeError("next_task_planner_node requires 'plan' in state")
+    print("[ENTER] node:next_task_planner_node")
+
+    user_prompt = state.get("user_input", "") or ""
+    if not user_prompt.strip():
+        raise RuntimeError("next_task_planner_node requires non-empty 'user_input' in state")
+
     runnable = build_next_tasks_planner()
     if runnable is None:
         raise RuntimeError("Next-tasks planner provider unavailable or misconfigured.")
 
-    user_prompt = state.get("user_input", "")
-    outline = state["plan"]
-    max_tasks = int(state.get("max_tasks", 3))
+    available_tasks: List[Dict[str, Any]] = list(state.get("available_tasks") or state.get("possible_tasks") or [])
+    max_tasks = int(state.get("max_tasks", 5))
 
-    # Use milestones_queue created in plan_high_level. Do not create it here.
-    milestones_queue: List[Dict[str, Any]] = list(state.get("milestones_queue") or [])
-    if len(milestones_queue) == 0:
-        # Nothing to plan; continue straight to router via graph wiring
-        state["current_milestone"] = None
-        state.setdefault("events", []).append({
-            "node": "next_task_planner_node", "ok": True, "planned": 0, "reason": "no_milestones"
-        })
-        return state
-
-    # Determine current milestone selector for wrapper: pass the milestone id/title
-    cm = milestones_queue[0]
-    state["current_milestone"] = cm
-    current_selector: Any = cm.get("id") or cm.get("title") or 0
-
+    # Ask the LLM to plan tasks purely from the user prompt (and optional allowed task catalog).
     result: Dict[str, Any] = runnable.invoke({
         "user_prompt": user_prompt,
-        "outline": outline,
-        "current_milestone": current_selector,
+        "available_tasks": available_tasks,
         "max_tasks": max_tasks,
     })
 
     tasks: List[Dict[str, Any]] = list(result.get("tasks") or [])
-    if not tasks:
-        # No tasks for current milestone: advance milestone and keep task queue empty
-        milestones_queue: List[Dict[str, Any]] = list(state.get("milestones_queue") or [])
-        if milestones_queue:
-            milestones_queue = milestones_queue[1:]
-            state["milestones_queue"] = milestones_queue
-            state["current_milestone"] = milestones_queue[0] if milestones_queue else None
-        else:
-            state["current_milestone"] = None
-        state["task_queue"] = []
-        state["current_task"] = {"type": None, "title": None, "params": {}}
-        state.setdefault("events", []).append({
-            "node": "next_task_planner_node", "ok": True, "planned": 0, "advanced": "milestone"
-        })
-        return state
 
-    # Queue invariant: current_task == task_queue[0]
+    # Queue invariant: current_task == task_queue[0] when tasks exist
     state["task_queue"] = tasks
-    state["current_task"] = tasks[0]
+    state["current_task"] = tasks[0] if tasks else None
+
     state.setdefault("events", []).append({
-        "node": "next_task_planner_node", "ok": True, "planned": len(tasks)
+        "node": "next_task_planner_node",
+        "ok": True,
+        "planned": len(tasks),
+        "source": "prompt_only" + ("_with_catalog" if available_tasks else "")
     })
     return state
+
 

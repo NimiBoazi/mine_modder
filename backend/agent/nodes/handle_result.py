@@ -12,6 +12,8 @@ def handle_result(state: AgentState) -> AgentState:
     - current_task mirrors task_queue[0] when task_queue is non-empty
     - current_milestone mirrors milestones_queue[0] when milestones_queue is non-empty
     """
+    print("[ENTER] node:handle_result")
+
     tq: List[Dict[str, Any]] = list(state.get("task_queue") or [])
     mq: List[Dict[str, Any]] = list(state.get("milestones_queue") or [])
 

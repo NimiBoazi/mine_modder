@@ -1,0 +1,7 @@
+// Context for LLM (variable values):
+// - registry_constant: CHISEL
+// - item_id: "chisel"
+// - main_class_name: "ChiselItem"
+
+public static final DeferredItem<Item> CHISEL = ITEMS.register("chisel",
+        () -> new ChiselItem(new Item.Properties().durability(32)));

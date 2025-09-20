@@ -9,6 +9,8 @@ def high_level_outline_node(state: AgentState) -> AgentState:
     """
     Pure node: consumes state['user_input'], produces state['plan'] (high-level outline).
     """
+    print("[ENTER] node:high_level_outline_node")
+
     user_prompt = (state.get("user_input") or "").strip()
     if not user_prompt:
         raise RuntimeError("high_level_outline_node requires 'user_input' in state")

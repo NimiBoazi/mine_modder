@@ -21,6 +21,8 @@ from .template_init import template_init
 def init_subgraph(state: AgentState) -> AgentState:
     """Run the real initialization pipeline using inferred params."""
 
+    print("[ENTER] node:init_subgraph")
+
     framework = state.get("framework")
     mc_version = state.get("mc_version")
     modid = state.get("modid")

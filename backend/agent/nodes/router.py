@@ -6,38 +6,38 @@ ALLOWED_TASK_TYPE = "add_custom_item"
 
 
 def route_task(state: AgentState) -> str:
-    """Router with milestone/task queues semantics.
+    """Route strictly by task queue (no milestones).
     Rules:
-    - Finish only if BOTH queues are empty
-    - If tasks exist and type is add_custom_item -> item_subgraph
-    - If no tasks but milestones remain -> plan_next_tasks
+    - If no tasks -> summarize_and_finish
+    - If tasks exist -> route by type to the correct subgraph
     """
-    task_queue = list(state.get("task_queue") or [])
-    milestones_queue = list(state.get("milestones_queue") or [])
+    print("[ENTER] node:route_task")
 
-    if len(task_queue) == 0 and len(milestones_queue) == 0:
+    task_queue = list(state.get("task_queue") or [])
+
+    if not task_queue:
         return "summarize_and_finish"
 
-    if task_queue:
-        current = state.get("current_task") or task_queue[0]
-        t = (current.get("type") or "").strip()
-        if t == ALLOWED_TASK_TYPE:
-            return "item_subgraph"
-        # No defensive fallback; unknown types are considered invalid in current design
-        raise RuntimeError(f"Unsupported task type: {t}")
+    current = state.get("current_task") or task_queue[0]
+    t = (current.get("type") or "").strip()
 
-    # No tasks but milestones remain -> plan next tasks
-    return "plan_next_tasks"
+    # Map known task types to subgraphs
+    if t == ALLOWED_TASK_TYPE:
+        return "item_subgraph"
+
+    # Unknown task types are invalid for now
+    raise RuntimeError(f"Unsupported task type: {t}")
 
 
 def route_after_handle_result(state: AgentState) -> str:
     """After handle_result:
-    - If task_queue is empty -> go plan_next_tasks
+    - If task_queue is empty -> summarize_and_finish
     - If tasks remain -> route by task type (e.g., item_subgraph)
     """
+    print("[ENTER] node:route_after_handle_result")
     task_queue = list(state.get("task_queue") or [])
     if not task_queue:
-        return "plan_next_tasks"
+        return "summarize_and_finish"
     return route_task(state)
 
 

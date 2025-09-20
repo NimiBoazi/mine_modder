@@ -1,6 +1,8 @@
 from ..state import AgentState
 
 def decide_after_result(state: AgentState) -> str:
+    print("[ENTER] node:decide_after_result")
+
     plan = state.get("plan") or {}
     tasks = plan.get("tasks") or []
     cursor = int(plan.get("cursor", 0))

@@ -61,7 +61,7 @@ from .nodes.intake import intake
 from .nodes.ensure_workspace import ensure_workspace
 from .nodes.infer_init_params import make_infer_init_params_node
 from .nodes.init_subgraph import init_subgraph
-from .nodes.plan_high_level import high_level_outline_node
+
 from .nodes.plan_next_tasks import next_task_planner_node
 from .nodes.handle_result import handle_result
 from .nodes.summarize_and_finish import summarize_and_finish
@@ -92,7 +92,6 @@ def build_graph():
     g.add_node("ensure_workspace", RunnableLambda(_maybe_wrap("ensure_workspace", ensure_workspace)))
     g.add_node("infer_init_params", RunnableLambda(_maybe_wrap("infer_init_params", make_infer_init_params_node(name_desc_extractor))))
     g.add_node("init_subgraph", RunnableLambda(_maybe_wrap("init_subgraph", init_subgraph)))
-    g.add_node("plan_high_level", RunnableLambda(_maybe_wrap("plan_high_level", high_level_outline_node)))
     g.add_node("plan_next_tasks", RunnableLambda(_maybe_wrap("plan_next_tasks", next_task_planner_node)))
     g.add_node("handle_result", RunnableLambda(_maybe_wrap("handle_result", handle_result)))
     g.add_node("summarize_and_finish", RunnableLambda(_maybe_wrap("summarize_and_finish", summarize_and_finish)))
@@ -113,18 +112,12 @@ def build_graph():
     g.add_edge("intake", "ensure_workspace")
     g.add_edge("ensure_workspace", "infer_init_params")
 
-    def route_workspace(state: AgentState) -> str:
-        return "init_subgraph" if state.get("_needs_init") else "plan_high_level"
-
-    g.add_conditional_edges("infer_init_params", route_workspace, {"init_subgraph": "init_subgraph", "plan_high_level": "plan_high_level"})
-    g.add_edge("init_subgraph", "plan_high_level")
-
-    # After outlining, always plan next tasks first
-    g.add_edge("plan_high_level", "plan_next_tasks")
+    # Direct flow: always initialize, then plan next tasks
+    g.add_edge("infer_init_params", "init_subgraph")
+    g.add_edge("init_subgraph", "plan_next_tasks")
 
     # After planning next tasks, route to the appropriate next step
     g.add_conditional_edges("plan_next_tasks", route_task, {
-        "plan_next_tasks": "plan_next_tasks",  # if no tasks but milestones remain
         "item_subgraph": "item_subgraph",
         "summarize_and_finish": "summarize_and_finish",
     })
@@ -135,7 +128,6 @@ def build_graph():
 
     # After handling result, route based on queues
     g.add_conditional_edges("handle_result", route_after_handle_result, {
-        "plan_next_tasks": "plan_next_tasks",
         "item_subgraph": "item_subgraph",
         "summarize_and_finish": "summarize_and_finish",
     })

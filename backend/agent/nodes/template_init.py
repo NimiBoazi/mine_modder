@@ -33,6 +33,8 @@ def template_init(state: AgentState) -> AgentState:
     - state['modid']
     - state['package']
     """
+    print("[ENTER] node:template_init")
+
     ws = Path(state["workspace_path"]).resolve()
     framework = state["framework"]
     modid = state["modid"]

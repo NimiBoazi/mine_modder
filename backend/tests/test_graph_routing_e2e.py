@@ -49,7 +49,7 @@ def test_graph_runs_start_to_finish(monkeypatch: pytest.MonkeyPatch, tmp_path: P
                 "display_name": "Test Item",
                 "add_to_creative": True,
                 "creative_tab_key": "CreativeModeTabs.INGREDIENTS",
-                "model_parent": "minecraft:item/generated",
+                "model_type": "basicItem",
                 "registry_constant": "TEST_ITEM",
             }
         return RunnableLambda(lambda x: _run(x))

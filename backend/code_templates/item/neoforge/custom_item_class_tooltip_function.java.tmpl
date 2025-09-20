@@ -1,0 +1,10 @@
+@Override
+public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+    if (Screen.hasShiftDown()) {
+        tooltipComponents.add(Component.translatable("tooltip.{{modid}}.{{item_id}}.shift_down"));
+    } else {
+        tooltipComponents.add(Component.translatable("tooltip.{{modid}}.{{item_id}}"));
+    }
+
+    super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
+}

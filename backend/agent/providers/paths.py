@@ -136,6 +136,19 @@ def mod_items_dir(ws: Path, base_package: str) -> Path:
 def mod_items_file(ws: Path, base_package: str) -> Path:
     return java_base_package_dir(ws, base_package) / "item" / "ModItems.java"
 
+# Datagen providers directory (created by template_init)
+def datagen_dir(ws: Path, base_package: str) -> Path:
+    return java_base_package_dir(ws, base_package) / "datagen"
+
+def mod_item_model_provider_file(ws: Path, base_package: str) -> Path:
+    return datagen_dir(ws, base_package) / "ModItemModelProvider.java"
+
+def mod_item_tag_provider_file(ws: Path, base_package: str) -> Path:
+    return datagen_dir(ws, base_package) / "ModItemTagProvider.java"
+
+def mod_recipe_provider_file(ws: Path, base_package: str) -> Path:
+    return datagen_dir(ws, base_package) / "ModRecipeProvider.java"
+
 def assets_dir(ws: Path, modid: str) -> Path:
     return resources_root(ws) / "assets" / modid
 
@@ -175,6 +188,40 @@ def texture_file(ws: Path, framework: str, ctx: Dict[str, Any]) -> Path:
     rel = _render_placeholders(tpl_path.read_text(encoding="utf-8"), ctx).strip()
     return ws / Path(rel)
 
+# -------- Item template helpers (strict resolution via templates_dir) --------
+
+def item_template_file(framework: str, name: str) -> Path:
+    """Return the path to a specific template file under item/<framework>.
+    Example: item_template_file("neoforge", "custom_item_class.java.tmpl")
+    """
+    td = templates_dir(framework, domain="item")
+    return td / name
+
+
+def custom_item_class_template(framework: str) -> Path:
+    return item_template_file(framework, "custom_item_class.java.tmpl")
+
+
+def custom_item_class_example_template(framework: str) -> Path:
+    return item_template_file(framework, "custom_item_class_example.java.tmpl")
+
+
+def custom_item_class_tooltip_template(framework: str) -> Path:
+    return item_template_file(framework, "custom_item_class_tooltip_function.java.tmpl")
+
+
+def item_creative_tab_accept_line_template(framework: str) -> Path:
+    return item_template_file(framework, "item_creative_tab_accept_line.java.tmpl")
+
+
+def item_model_line_template(framework: str) -> Path:
+    return item_template_file(framework, "item_model_line.java.tmpl")
+
+
+def item_tag_line_template(framework: str) -> Path:
+    return item_template_file(framework, "tag_line.java.tmpl")
+
+
 
 __all__ = [
     "PathsSettings",
@@ -187,8 +234,22 @@ __all__ = [
     "main_class_dir",
     "mod_items_file",
     "mod_items_dir",
+    "datagen_dir",
+    "mod_item_model_provider_file",
+    "mod_item_tag_provider_file",
+    "mod_recipe_provider_file",
     "assets_dir",
     "lang_file",
     "model_file",
     "texture_file",
+    # item template helpers
+    "item_template_file",
+    "custom_item_class_template",
+    "custom_item_class_example_template",
+    "custom_item_class_tooltip_template",
+    "item_creative_tab_accept_line_template",
+    "item_model_line_template",
+    "item_tag_line_template",
+
+
 ]

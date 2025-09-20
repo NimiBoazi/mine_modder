@@ -16,6 +16,8 @@ def make_name_desc_extractor(model: BaseChatModel) -> Runnable:
     ))
     # We will keep it simple and rely on model.invoke for now.
     def _run(user_prompt: str) -> Dict[str, Any]:
+        print("[ENTER] wrapper:llm_name_desc_extractor")
+
         msg = HumanMessage(content=(
             "User request describing a mod:\n\n" + user_prompt + "\n\n"
             "Respond with JSON: {\"name\": string, \"description\": string}"

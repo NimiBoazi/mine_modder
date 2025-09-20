@@ -1,126 +1,41 @@
 from __future__ import annotations
-import re
 from pathlib import Path
 from typing import List, Dict, Any, Dict, Any
 from backend.agent.state import AgentState
 from backend.agent.wrappers.storage import STORAGE as storage
 from backend.agent.providers.paths import (
-    templates_dir,
-    main_class_file,
-    mod_items_file,
     lang_file,
-    model_file,
     texture_file,
-    java_base_package_dir,
 )
+# Optional codegen wrapper builders (implemented later)
+try:
+    from backend.agent.providers.create_custom_item_class import build_create_custom_item_class
+except Exception:  # pragma: no cover
+    build_create_custom_item_class = None  # type: ignore
+try:
+    from backend.agent.providers.create_registry_line import build_create_registry_line
+except Exception:  # pragma: no cover
+    build_create_registry_line = None  # type: ignore
+try:
+    from backend.agent.providers.create_item_model import build_create_item_model
+except Exception:  # pragma: no cover
+    build_create_item_model = None  # type: ignore
+try:
+    from backend.agent.providers.create_item_tags import build_create_item_tags
+except Exception:  # pragma: no cover
+    build_create_item_tags = None  # type: ignore
+try:
+    from backend.agent.providers.create_item_recipe import build_create_item_recipe
+except Exception:  # pragma: no cover
+    build_create_item_recipe = None  # type: ignore
+try:
+    from backend.agent.providers.update_creative_tab_item import build_update_creative_tab_item
+except Exception:  # pragma: no cover
+    build_update_creative_tab_item = None  # type: ignore
+
 # NEW: LLM provider for item schema
 from backend.agent.providers.item_schema import build_item_schema_extractor
 from backend.agent.providers.image_gen import build_item_texture_generator
-
-from backend.agent.nodes.item_init import items_init_guard
-
-
-# Anchor constants colocated here for clarity
-REG_BEGIN = "// ==MM:ITEM_REGISTRATIONS_BEGIN=="
-REG_END   = "// ==MM:ITEM_REGISTRATIONS_END=="
-CRE_BEGIN = "// ==MM:CREATIVE_ACCEPT_BEGIN=="
-CRE_END   = "// ==MM:CREATIVE_ACCEPT_END=="
-
-def _render(text: str, ctx: dict) -> str:
-    for k, v in ctx.items():
-        text = text.replace(f"{{{{{k}}}}}", str(v))
-    return text
-
-def _insert_between_anchors(path: Path, begin: str, end: str, snippet: str) -> bool:
-    """Append snippet on the line before the end anchor.
-
-    Behaviors:
-    - Matches indentation of the END anchor line.
-    - Idempotent: if the fully-indented snippet already exists, does nothing.
-    - Preserves existing content between anchors; appends just above END.
-    - Ensures exactly one empty line above the END anchor after insertion.
-    """
-    s = storage.read_text(path, encoding="utf-8", errors="ignore")
-
-    start = s.find(begin)
-    stop = s.find(end, start + len(begin))
-    if start == -1 or stop == -1:
-        raise RuntimeError(f"Anchor block not found in {path}: [{begin}..{end}]")
-
-    # Identify the start of the END anchor line and its indentation
-    line_start = s.rfind("\n", 0, stop)
-    if line_start == -1:
-        line_start = 0
-    end_line_start = line_start + 1
-    end_line = s[end_line_start : s.find("\n", stop) if s.find("\n", stop) != -1 else len(s)]
-
-    import re as _re
-    end_indent = _re.match(r"[\t ]*", end_line).group(0)
-
-    # Prepare indented snippet (multi-line safe)
-    rendered = snippet.rstrip("\n")
-    indented = "\n".join((end_indent + ln if ln else ln) for ln in rendered.splitlines())
-
-    # Idempotence check against fully-indented payload
-    if indented and indented in s:
-        return False
-
-    # Compose: keep the indentation of END line intact
-    before_end_line = s[:end_line_start]
-    end_and_after = s[end_line_start:]
-
-    # Ensure exactly one blank line before END anchor
-    before_end_line = before_end_line.rstrip(" \t\n") + "\n\n"
-
-    new = before_end_line + indented + "\n" + end_indent + end_and_after
-    storage.write_text(path, new, encoding="utf-8")
-    return True
-
-
-def _normalize_anchor_block(path: Path, begin: str, end: str) -> bool:
-    """Ensure BEGIN and END lines share the same indentation and enforce one blank line above END.
-
-    Returns True if a change was made.
-    """
-    s = storage.read_text(path, encoding="utf-8", errors="ignore")
-    start = s.find(begin)
-    stop = s.find(end, start + len(begin))
-    if start == -1 or stop == -1:
-        return False
-
-    import re as _re
-
-    # Compute begin/end line starts and indents
-    begin_ls = s.rfind("\n", 0, start)
-    begin_ls = 0 if begin_ls == -1 else begin_ls + 1
-    end_ls = s.rfind("\n", 0, stop)
-    end_ls = 0 if end_ls == -1 else end_ls + 1
-
-    begin_line = s[begin_ls : s.find("\n", start) if s.find("\n", start) != -1 else len(s)]
-    end_line = s[end_ls : s.find("\n", stop) if s.find("\n", stop) != -1 else len(s)]
-
-    begin_indent = _re.match(r"[\t ]*", begin_line).group(0)
-    end_indent = _re.match(r"[\t ]*", end_line).group(0)
-
-    changed = False
-
-    # If end indent differs, replace it
-    if begin_indent != end_indent:
-        # Replace only the leading whitespace of the END line
-        end_line_no_ws = end_line[len(end_indent):]
-        s = s[:end_ls] + begin_indent + end_line_no_ws + s[end_ls + len(end_line):]
-        changed = True
-        # Recompute positions after mutation
-        stop = s.find(end, begin_ls + len(begin))
-        end_ls = s.rfind("\n", 0, stop)
-        end_ls = 0 if end_ls == -1 else end_ls + 1
-
-    # Enforce exactly one blank line before END line
-    head = s[:end_ls]
-    head = head.rstrip(" \t\n") + "\n\n"
-    s = head + s[end_ls:]
-    storage.write_text(path, s, encoding="utf-8")
-    return True
 
 def _json_lang_update(path: Path, key: str, value: str) -> bool:
     import json
@@ -135,6 +50,8 @@ def _json_lang_update(path: Path, key: str, value: str) -> bool:
     return True
 
 def item_subgraph(state: AgentState) -> AgentState:
+    print("[ENTER] node:item_subgraph")
+
     ws = Path(state["workspace_path"])
     framework = state["framework"]
     modid = state["modid"]
@@ -168,13 +85,22 @@ def item_subgraph(state: AgentState) -> AgentState:
     if extractor is None:
         raise RuntimeError("item_subgraph: item schema provider unavailable or misconfigured.")
 
+    # Provide existing objects for dependency-aware prompting
+    prev_items = list((state.get("items") or {}).keys())
+    created_objects = list(state.get("created_objects") or [])
+    available_objects = list(dict.fromkeys([*(created_objects or []), *(prev_items or [])]))
+
     # Will raise if the wrapper/model returns invalid JSON or lacks item_id (no fallbacks in wrapper)
-    item_schema: Dict[str, Any] = extractor.invoke({"task": task_text, "user_prompt": user_prompt})
+    item_schema: Dict[str, Any] = extractor.invoke({
+        "task": task_text,
+        "user_prompt": user_prompt,
+        "available_objects": available_objects,
+    })
 
     item_id = item_schema["item_id"].strip()
 
-    # Minimal, derivable fields to keep the rest of the pipeline deterministic
-    main_class_name = "".join(p.capitalize() for p in modid.split("_") if p)
+    # Use the LLM-provided field from item_schema (do not derive here)
+    item_class_name = item_schema["item_class_name"]
 
     # Persist a full schema for this item_id inside state["items"] (include mod context here)
     items = state.get("items") or {}
@@ -183,103 +109,125 @@ def item_subgraph(state: AgentState) -> AgentState:
     persisted.update({
         "modid": modid,
         "base_package": base_package,
-        "main_class_name": main_class_name,
+        "item_class_name": item_class_name,
+        # Back-compat: keep 'main_class_name' alias for any legacy consumers expecting this key
+        "main_class_name": item_class_name,
     })
     items[item_id] = persisted
     state["items"] = items
     state["current_item_id"] = item_id
     state["item"] = persisted
-    # Ensure item init ran once (creates ModItems.java and main class with anchors)
-    if not state.get("items_initialized"):
-        state = items_init_guard(state)
-
-
+    # Track created objects globally for dependency-aware prompts
+    co = list(state.get("created_objects") or [])
+    if item_id not in co:
+        co.append(item_id)
+    state["created_objects"] = co
 
     # === Continue with deterministic file updates using provided schema ===
     ctx = {
         "base_package": base_package,
-        "main_class_name": main_class_name,
+        "item_class_name": item_class_name,
         "modid": modid,
         "creative_tab_key": item_schema["creative_tab_key"],
-        "registry_constant": item_schema.get("registry_constant") or re.sub(r'[^A-Za-z0-9]+', '_', item_id).upper().strip('_'),
+        "registry_constant": item_schema["registry_constant"],
         "item_id": item_id,
         "display_name": item_schema["display_name"],
-        "model_parent": item_schema["model_parent"],
+        "model_type": item_schema["model_type"],
     }
 
-    # Workspace paths (via provider) — use derived values to avoid schema drift
-    main_class_path = main_class_file(ws, base_package, main_class_name)
-    mod_items_path  = mod_items_file(ws, base_package)
+
     lang_path       = lang_file(ws, modid)
-    model_path      = model_file(ws, framework, ctx)     # STRICT path templates
     texture_png     = texture_file(ws, framework, ctx)   # STRICT path templates
 
     changed: List[str] = []
     notes: List[str] = []
 
-    # Content templates dir (per framework; STRICT existence)
-    td = templates_dir(framework, domain="item")
 
-    # 0) Ensure Config.java from template (written as a normal class, no anchors)
-    cfg_tmpl = td / "config.java.tmpl"
-    if cfg_tmpl.exists():
-        cfg_dst_dir = java_base_package_dir(ws, base_package)
-        cfg_dst = cfg_dst_dir / "Config.java"
-        cfg_src = _render(cfg_tmpl.read_text(encoding="utf-8"), ctx)
-        prev_cfg = storage.read_text(cfg_dst) if storage.exists(cfg_dst) else None
-        storage.ensure_dir(cfg_dst_dir)
-        storage.write_text(cfg_dst, cfg_src, encoding="utf-8")
-        if prev_cfg != cfg_src:
-            changed.append(str(cfg_dst))
+    # 1) Create the custom class via wrapper. Wrapper writes the file; subgraph assumes success.
+    if build_create_custom_item_class is None:
+        raise RuntimeError("Missing provider: create_custom_item_class (build_create_custom_item_class)")
+    _ = build_create_custom_item_class().invoke({
+        "item_schema": item_schema,
+        "mod_context": {"base_package": base_package, "modid": modid},
+        "framework": framework,
+        "workspace": str(ws),
+        "items_index": state.get("items") or {},
+    })
 
-    # 1) Insert registration line (between anchors, idempotent)
-    reg_tmpl = td / "mod_items_registration_line.java.tmpl"
-    if not reg_tmpl.exists():
-        raise FileNotFoundError(f"Missing template: {reg_tmpl}")
-    reg_line  = _render(reg_tmpl.read_text(encoding="utf-8"), ctx).rstrip()
-    if _insert_between_anchors(mod_items_path, REG_BEGIN, REG_END, reg_line):
-        changed.append(str(mod_items_path))
+    # 2) Registry update via wrapper. Wrapper updates ModItems.java; subgraph assumes success.
+    if build_create_registry_line is None:
+        raise RuntimeError("Missing provider: create_registry_line (build_create_registry_line)")
+    _ = build_create_registry_line().invoke({
+        "item_schema": item_schema,
+        "mod_context": {"base_package": base_package, "modid": modid},
+        "framework": framework,
+        "workspace": str(ws),
+    })
 
-    # 2) Insert creative tab accept (if requested)
+    # 3) Update creative tab via wrapper; subgraph assumes success
     if bool(item_schema.get("add_to_creative", True)):
-        cre_tmpl = td / "creative_tab_accept_line.java.tmpl"
-        if not cre_tmpl.exists():
-            raise FileNotFoundError(f"Missing template: {cre_tmpl}")
-        cre_line  = _render(cre_tmpl.read_text(encoding="utf-8"), ctx).rstrip()
-        if _insert_between_anchors(main_class_path, CRE_BEGIN, CRE_END, cre_line):
-            changed.append(str(main_class_path))
+        if build_update_creative_tab_item is None:
+            raise RuntimeError("Missing provider: update_creative_tab_item (build_update_creative_tab_item)")
+        _ = build_update_creative_tab_item().invoke({
+            "item_schema": item_schema,
+            "mod_context": {"base_package": base_package, "modid": modid},
+            "framework": framework,
+            "workspace": str(ws),
+        })
 
-    # 2.5) Normalize indentation and spacing of anchor blocks
-    if _normalize_anchor_block(mod_items_path, REG_BEGIN, REG_END):
-        if str(mod_items_path) not in changed:
-            changed.append(str(mod_items_path))
-    if _normalize_anchor_block(main_class_path, CRE_BEGIN, CRE_END):
-        if str(main_class_path) not in changed:
-            changed.append(str(main_class_path))
+    # 4) ModItemModelProvider update via wrapper. Wrapper updates file; subgraph assumes success.
+    if build_create_item_model is None:
+        raise RuntimeError("Missing provider: create_item_model (build_create_item_model)")
+    _ = build_create_item_model().invoke({
+        "item_schema": item_schema,
+        "mod_context": {"base_package": base_package, "modid": modid},
+        "framework": framework,
+        "workspace": str(ws),
+    })
 
-    # 3) Lang merge
+    # 5) ModItemTagProvider update via wrapper; subgraph assumes success (only if tags present)
+    tags = item_schema.get("tags") or []
+    if tags:
+        if build_create_item_tags is None:
+            raise RuntimeError("Missing provider: create_item_tags (build_create_item_tags)")
+        _ = build_create_item_tags().invoke({
+            "item_schema": item_schema,
+            "mod_context": {"base_package": base_package, "modid": modid},
+            "framework": framework,
+            "workspace": str(ws),
+        })
+
+    # 6) ModRecipeProvider update via wrapper; subgraph assumes success (only if ingredients present)
+    ingredients = item_schema.get("recipe_ingredients") or []
+    if ingredients:
+        if build_create_item_recipe is None:
+            raise RuntimeError("Missing provider: create_item_recipe (build_create_item_recipe)")
+        _ = build_create_item_recipe().invoke({
+            "item_schema": item_schema,
+            "mod_context": {"base_package": base_package, "modid": modid},
+            "framework": framework,
+            "workspace": str(ws),
+        })
+
+
+    # 8) Lang merge
     if _json_lang_update(lang_path, f'item.{modid}.{item_id}', item_schema["display_name"]):
         changed.append(str(lang_path))
 
-    # 4) Model overwrite (deterministic)
-    model_tmpl = td / "item_model.json.tmpl"
-    if not model_tmpl.exists():
-        raise FileNotFoundError(f"Missing template: {model_tmpl}")
-    model_json = _render(model_tmpl.read_text(encoding="utf-8"), ctx)
-    storage.ensure_dir(model_path.parent)
-    prev = storage.read_text(model_path) if storage.exists(model_path) else None
-    storage.write_text(model_path, model_json, encoding="utf-8")
+    # Tooltip entries (both keys use the same tooltip_text value)
+    tooltip_text = item_schema.get("tooltip_text")
+    if isinstance(tooltip_text, str) and tooltip_text.strip():
+        if _json_lang_update(lang_path, f'tooltip.{modid}.{item_id}', tooltip_text):
+            changed.append(str(lang_path))
+        if _json_lang_update(lang_path, f'tooltip.{modid}.{item_id}.shift_down', tooltip_text):
+            changed.append(str(lang_path))
 
-    # 4.5) Texture generation (optional, if a prompt is provided and provider is configured)
-    texture_prompt = (
-        item_schema.get("texture_prompt")
-    )
+    # 9) Texture generation (optional)
+    texture_prompt = item_schema.get("texture_prompt")
     texture_prompt = texture_prompt.strip() if isinstance(texture_prompt, str) else ""
-
     gen = build_item_texture_generator()
     if gen is not None and texture_prompt:
         try:
-            # Do not overwrite if a texture already exists
             if storage.exists(texture_png):
                 notes.append(f"Texture already exists, skipped generation: {texture_png}")
             else:
@@ -298,9 +246,6 @@ def item_subgraph(state: AgentState) -> AgentState:
                     notes.append("Texture generator returned no image bytes; skipping save.")
         except Exception as e:
             notes.append(f"Texture generation failed: {e}")
-
-    if prev != model_json:
-        changed.append(str(model_path))
 
     # 5) Texture hint
     storage.ensure_dir(texture_png.parent)

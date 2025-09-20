@@ -9,6 +9,7 @@ import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredItem;
 
 // ==MM:EXTRA_IMPORTS_BEGIN==
 // ==MM:EXTRA_IMPORTS_END==
@@ -21,21 +22,32 @@ public class ModItemModelProvider extends ItemModelProvider {
     @Override
     protected void registerModels() {
         // ==MM:ITEM_MODEL_REGISTRATIONS_BEGIN==
-        // Examples (replace/remove as needed):
-        //
-        // basicItem(ModItems.EXAMPLE_INGOT.get());
-        // basicItem(ModItems.EXAMPLE_GEM.get());
-        //
-        // buttonItem(ModBlocks.EXAMPLE_BUTTON, ModBlocks.EXAMPLE_BASE_BLOCK);
-        // fenceItem(ModBlocks.EXAMPLE_FENCE, ModBlocks.EXAMPLE_BASE_BLOCK);
-        // wallItem(ModBlocks.EXAMPLE_WALL, ModBlocks.EXAMPLE_BASE_BLOCK);
-        //
-        // // Door item usually points to its generated block model name:
-        // basicItem(ModBlocks.EXAMPLE_DOOR.asItem());
         // ==MM:ITEM_MODEL_REGISTRATIONS_END==
     }
 
     // --- Helpers ---
+
+    /** Items from ModItems (DeferredItem). */
+    public void registerItemModel(String modelType, DeferredItem<?> item) {
+        switch (modelType) {
+            case "basicItem" -> super.basicItem(item.get());
+            case "handheldItem" -> withExistingParent(item.getId().getPath(), mcLoc("item/handheld"))
+                    .texture("layer0", ResourceLocation.fromNamespaceAndPath(
+                            {{main_class_name}}.MOD_ID,
+                            "item/" + item.getId().getPath()
+                    ));
+            default -> throw new IllegalArgumentException("Item pipeline only supports 'basicItem' or 'handheldItem'. Got: " + modelType);
+        }
+    }
+
+    /** Block items (e.g., doors) registered under ModBlocks. Only valid for "basicItem". */
+    public void registerItemModel(String modelType, DeferredBlock<?> block) {
+        if (!"basicItem".equals(modelType)) {
+            throw new IllegalArgumentException("Block-as-item models only support 'basicItem'. Got: " + modelType);
+        }
+        super.basicItem(block.get().asItem());
+    }
+
 
     public void buttonItem(DeferredBlock<?> block, DeferredBlock<Block> baseBlock) {
         this.withExistingParent(block.getId().getPath(), mcLoc("block/button_inventory"))
