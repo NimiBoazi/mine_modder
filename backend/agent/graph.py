@@ -78,7 +78,7 @@ from .nodes.weather_subgraph import weather_subgraph
 from .nodes.qa_subgraph import qa_subgraph
 
 # Routing Imports
-from .nodes.router import route_task, route_after_handle_result
+from .nodes.router import route_task, route_after_handle_result, route_after_verify
 
 def build_graph():
     BACKEND_ENV = Path(__file__).resolve().parents[1] / ".env"
@@ -124,7 +124,10 @@ def build_graph():
 
     for sub in ("item_subgraph", "block_subgraph", "mob_subgraph", "biome_subgraph", "weather_subgraph", "qa_subgraph"):
         g.add_edge(sub, "verify_task")
-    g.add_edge("verify_task", "handle_result")
+    g.add_conditional_edges("verify_task", route_after_verify, {
+        "handle_result": "handle_result",
+        "summarize_and_finish": "summarize_and_finish",
+    })
 
     # After handling result, route based on queues
     g.add_conditional_edges("handle_result", route_after_handle_result, {

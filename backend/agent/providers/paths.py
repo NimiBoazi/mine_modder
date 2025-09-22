@@ -136,6 +136,9 @@ def mod_items_dir(ws: Path, base_package: str) -> Path:
 def mod_items_file(ws: Path, base_package: str) -> Path:
     return java_base_package_dir(ws, base_package) / "item" / "ModItems.java"
 
+def mod_food_properties_file(ws: Path, base_package: str) -> Path:
+    return java_base_package_dir(ws, base_package) / "item" / "ModFoodProperties.java"
+
 # Datagen providers directory (created by template_init)
 def datagen_dir(ws: Path, base_package: str) -> Path:
     return java_base_package_dir(ws, base_package) / "datagen"
@@ -234,6 +237,7 @@ __all__ = [
     "main_class_dir",
     "mod_items_file",
     "mod_items_dir",
+    "mod_food_properties_file",
     "datagen_dir",
     "mod_item_model_provider_file",
     "mod_item_tag_provider_file",

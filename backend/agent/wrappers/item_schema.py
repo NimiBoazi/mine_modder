@@ -65,6 +65,8 @@ def _validate_output(data: Dict[str, Any]) -> None:
         raise ValueError('"description" must be a string if present.')
     if "object_ids_for_context" in data and not isinstance(data["object_ids_for_context"], list):
         raise ValueError('"object_ids_for_context" must be a list of strings if present.')
+    if "is_consumable" in data and not isinstance(data["is_consumable"], bool):
+        raise ValueError('"is_consumable" must be a boolean (true/false).')
 
 def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorInput, Dict[str, Any]]:
     """
@@ -83,7 +85,8 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
         '  "texture_prompt": "≤12 words, nouns/adjectives only",\n'
         '  "creative_tab_key": one of ["minecraft:building_blocks","minecraft:colored_blocks","minecraft:natural_blocks","minecraft:functional_blocks","minecraft:redstone_blocks","minecraft:tools_and_utilities","minecraft:combat","minecraft:food_and_drinks","minecraft:ingredients","minecraft:spawn_eggs"],\n'
         '  "model_type": one of ["basicItem", "handheldItem"],\n'
-        '  "description": "concise, informative, list all custom functionalities"\n'
+        '  "description": "concise, informative, list all custom functionalities",\n'
+        '  "is_consumable": true|false\n'
         "}\n"
         "Optional fields:\n"
         '{  "recipe_ingredients": ["item_id_or_tag", ...], '
@@ -193,6 +196,7 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
             "creative_tab_key": creative_tab_key,
             "model_type": model_type,
             "description": description,
+            "is_consumable": bool(data.get("is_consumable", False)),
 
             # Optional
             "recipe_ingredients": recipe_ingredients if isinstance(recipe_ingredients, list) else None,

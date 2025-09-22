@@ -32,6 +32,10 @@ try:
     from backend.agent.providers.update_creative_tab_item import build_update_creative_tab_item
 except Exception:  # pragma: no cover
     build_update_creative_tab_item = None  # type: ignore
+try:
+    from backend.agent.providers.update_food_properties import build_update_food_properties
+except Exception:  # pragma: no cover
+    build_update_food_properties = None  # type: ignore
 
 # NEW: LLM provider for item schema
 from backend.agent.providers.item_schema import build_item_schema_extractor
@@ -184,6 +188,17 @@ def item_subgraph(state: AgentState) -> AgentState:
         "framework": framework,
         "workspace": str(ws),
     })
+
+    # 4.5) ModFoodProperties update via wrapper; only if consumable
+    if bool(item_schema.get("is_consumable", False)):
+        if build_update_food_properties is None:
+            raise RuntimeError("Missing provider: update_food_properties (build_update_food_properties)")
+        _ = build_update_food_properties().invoke({
+            "item_schema": item_schema,
+            "mod_context": {"base_package": base_package, "modid": modid},
+            "framework": framework,
+            "workspace": str(ws),
+        })
 
     # 5) ModItemTagProvider update via wrapper; subgraph assumes success (only if tags present)
     tags = item_schema.get("tags") or []

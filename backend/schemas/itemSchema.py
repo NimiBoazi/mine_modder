@@ -24,6 +24,9 @@ class ItemSchema:
     tooltip_text: Optional[str] = None
     object_ids_for_context: Optional[List[str]] = None
 
+    # new: consumable flag
+    is_consumable: bool = False
+
     # ---------- helpers & derived (read-only) ----------
     @staticmethod
     def _upper_snake(s: str) -> str:
@@ -106,6 +109,7 @@ class ItemSchema:
             "tags": self.tags,
             "tooltip_text": self.tooltip_text,
             "object_ids_for_context": self.object_ids_for_context,
+            "is_consumable": self.is_consumable,
 
             # derived paths/keys used by templates & file writes
             "base_package_path": self.base_package_path,

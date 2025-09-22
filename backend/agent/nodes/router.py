@@ -41,6 +41,14 @@ def route_after_handle_result(state: AgentState) -> str:
     return route_task(state)
 
 
+def route_after_verify(state: AgentState) -> str:
+    """Route after verify_task based on verification outcome."""
+    print("[ENTER] node:route_after_verify")
+    ver = state.get("verification") or {}
+    ok = bool(ver.get("ok"))
+    return "handle_result" if ok else "summarize_and_finish"
+
+
 # Backwards-compat alias for existing graph wiring, if any
 def route_task_skeleton(state: AgentState) -> str:
     return route_task(state)
