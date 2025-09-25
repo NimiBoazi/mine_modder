@@ -41,6 +41,7 @@ class ItemExtractorInput(TypedDict, total=False):
     task: str          # specific item task (e.g., "Create an alexandrite gem item")
     user_prompt: str   # overall mod description/context
     available_objects: List[str]  # optional: IDs of already-created objects in this mod
+    modid: str         # optional: the mod id to avoid naming collisions
 
 _ITEM_ID_RE = re.compile(r"^[a-z0-9_./-]+$")
 
@@ -76,11 +77,13 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
     system = SystemMessage(content=(
         "You are an expert Minecraft modding assistant. Extract a SINGLE item's schema "
         "from a specific item task, using the overall mod prompt for context.\n"
+        "Make sure the item_id is unique within the mod.\n"
+        "Never set 'item_id' or 'display_name' equal to the MOD_ID; if a user asks for a name equal to MOD_ID, choose a distinct variant (e.g., add a descriptive suffix) or optionally use a 'MOD_ID_' prefix plus a distinguishing suffix (e.g., MOD_ID+'_item').\n"
+        "Provide vanilla Minecraft tags using the correct Java class format, like 'SWORDS'."
         "Return STRICT JSON (no markdown, no extra text; no code fences).\n\n"
         "Required fields:\n"
         "{\n"
         '  "item_id": "lower_snake_case_id",\n'
-        '  "item_class_name": "JavaClassName",\n'
         '  "display_name": "Title Cased Name",\n'
         '  "texture_prompt": "≤12 words, nouns/adjectives only",\n'
         '  "creative_tab_key": one of ["minecraft:building_blocks","minecraft:colored_blocks","minecraft:natural_blocks","minecraft:functional_blocks","minecraft:redstone_blocks","minecraft:tools_and_utilities","minecraft:combat","minecraft:food_and_drinks","minecraft:ingredients","minecraft:spawn_eggs"],\n'
@@ -101,8 +104,8 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
         "\n"
         "Rules:\n"
         "- Output MUST be a single valid JSON object and nothing else.\n"
-        "- 'item_class_name' is the main custom Java class for this item (CamelCase). "
-        "  If item_id is 'alexandrite_gem', a good class name is 'AlexandriteGem'.\n"
+        "- 'item_class_name' is the main custom Java class for this item. Set it to CamelCase(item_id) exactly. Do not add suffixes or alter words.\n"
+        "  Examples: item_id 'alexandrite_gem' -> 'AlexandriteGem'; item_id 'sapphire' -> 'Sapphire'.\n"
         "- 'texture_prompt' ≤ 12 words; nouns/adjectives only; describe color/material/pattern; "
         "  avoid 'minecraft', 'pixel art', or 'texture'.\n"
     ))
@@ -122,14 +125,25 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
             available_objects = []
         available_objects = [str(x) for x in available_objects if isinstance(x, (str, bytes))]
 
+        modid = str(payload.get("modid") or "").strip()
+
         ao_block = ""
-        if available_objects:
+        if available_objects or modid:
             # Present as JSON-like for clarity
-            ao_list = ", ".join([f'"{o}"' for o in available_objects])
-            ao_block = (
-                "AVAILABLE_OBJECTS (already created in this mod; choose only from this list if needed for context):\n"
-                f"[{ao_list}]\n\n"
-            )
+            ao_lines = []
+            if available_objects:
+                ao_list = ", ".join([f'"{o}"' for o in available_objects])
+                ao_lines.append(
+                    "AVAILABLE_OBJECTS (already created in this mod; choose only from this list if needed for context):\n"
+                    f"[{ao_list}]\n"
+                )
+            if modid:
+                ao_lines.append(
+                    f"MOD_ID: {modid}\n"
+                    "Do NOT set 'item_id' or 'display_name' equal to the MOD_ID; the item must have a distinct name.\n"
+                    "If the requested name equals the MOD_ID, adjust by adding a descriptive suffix (e.g., '_item', '_gem', '_tool') or use the MOD_ID as a prefix with a distinguishing suffix (e.g., MOD_ID + '_item').\n"
+                )
+            ao_block = "".join(ao_lines) + "\n"
 
         user_msg = HumanMessage(content=(
             "Overall mod prompt:\n"
@@ -151,10 +165,8 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
         item_id = data["item_id"].strip()
         display_name = (data.get("display_name") or _title_from_id(item_id)).strip()
 
-        # item_class_name: use provided or derive CamelCase from item_id
-        item_class_name = data.get("item_class_name")
-        if not item_class_name or not isinstance(item_class_name, str) or not item_class_name.strip():
-            item_class_name = _java_class_name_from_id(item_id)
+        # item_class_name: derive strictly from item_id (CamelCase of item_id)
+        item_class_name = _java_class_name_from_id(item_id)
 
         description = (data.get("description") or "").strip()
         # if not description:
@@ -210,6 +222,11 @@ def make_item_schema_extractor(model: BaseChatModel) -> Runnable[ItemExtractorIn
             # Back-compat nicety: some pipelines expect custom_class_name
             "custom_class_name": item_class_name,
         }
+        try:
+            print("[ITEM_SCHEMA_EXTRACTOR] full schema:")
+            print(json.dumps(full, ensure_ascii=False, indent=2))
+        except Exception:
+            print("[ITEM_SCHEMA_EXTRACTOR] full schema (repr):", full)
         return full
 
     return RunnableLambda(lambda x: _run(x))

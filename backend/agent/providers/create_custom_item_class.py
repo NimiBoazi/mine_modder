@@ -23,5 +23,23 @@ def build_create_custom_item_class() -> Optional[Runnable]:
     model = build_gpt5_chat_model()
     if model is None:
         return None
+    # Increase timeout specifically for custom item class generation (slowest step)
+    try:
+        import os
+        timeout_s = int(os.getenv("CUSTOM_ITEM_CLASS_TIMEOUT", os.getenv("OPENAI_REQUEST_TIMEOUT", "180")))
+        model = model.bind(timeout=timeout_s)
+    except Exception:
+        pass
+    # Optional: request higher reasoning effort if explicitly enabled (requires supported model/endpoint)
+    try:
+        import os
+        _reasoning_flag = os.getenv("CUSTOM_ITEM_CLASS_REASONING", "").strip().lower()
+        if _reasoning_flag in ("1", "true", "yes", "on", "high"):
+            model = model.bind(
+                extra_headers={"OpenAI-Beta": "reasoning=v1"},
+                extra_body={"reasoning": {"effort": "high"}},
+            )
+    except Exception:
+        pass
     return make_create_custom_item_class(model)
 

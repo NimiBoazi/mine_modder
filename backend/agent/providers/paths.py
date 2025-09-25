@@ -191,6 +191,47 @@ def texture_file(ws: Path, framework: str, ctx: Dict[str, Any]) -> Path:
     rel = _render_placeholders(tpl_path.read_text(encoding="utf-8"), ctx).strip()
     return ws / Path(rel)
 
+# -------- MDK project helpers --------
+
+def gradle_properties_file(ws: Path) -> Path:
+    return ws / "gradle.properties"
+
+def build_gradle_file(ws: Path) -> Path:
+    g = ws / "build.gradle"
+    if g.exists():
+        return g
+    return ws / "build.gradle.kts"
+
+def detect_neoforge_version(ws: Path) -> str | None:
+    """Detect NeoForge version from the MDK.
+
+    Order:
+    1) gradle.properties keys: neoforge_version, neo_version
+    2) build.gradle(.kts) dependency notations like 'net.neoforged:neoforge:<ver>'
+    """
+    try:
+        gp = gradle_properties_file(ws)
+        if gp.exists():
+            txt = gp.read_text(encoding="utf-8")
+            import re as _re
+            m = _re.search(r"^\s*(?:neoforge_version|neo_version)\s*[:=]\s*['\"]?([\w\.-]+)['\"]?\s*$", txt, flags=_re.MULTILINE)
+            if m:
+                return m.group(1)
+    except Exception:
+        pass
+    try:
+        bg = build_gradle_file(ws)
+        if bg.exists():
+            txt = bg.read_text(encoding="utf-8")
+            import re as _re
+            m = _re.search(r"net\.neoforged:neoforge:([0-9A-Za-z_.\-]+)", txt)
+            if m:
+                return m.group(1)
+    except Exception:
+        pass
+    return None
+
+
 # -------- Item template helpers (strict resolution via templates_dir) --------
 
 def item_template_file(framework: str, name: str) -> Path:
@@ -215,6 +256,28 @@ def custom_item_class_tooltip_template(framework: str) -> Path:
 
 def item_creative_tab_accept_line_template(framework: str) -> Path:
     return item_template_file(framework, "item_creative_tab_accept_line.java.tmpl")
+
+
+# -------- Build output helpers --------
+
+def workspace_build_libs_dir(ws: Path | str) -> Path:
+    """Return the path to the Gradle build/libs directory for a workspace."""
+    return Path(ws) / "build" / "libs"
+
+
+def find_latest_mod_jar(ws: Path | str) -> Path | None:
+    """Return the newest built JAR under build/libs for the given workspace, if any."""
+    libs = workspace_build_libs_dir(ws)
+    try:
+        if libs.exists() and libs.is_dir():
+            jars = [p for p in libs.glob("*.jar") if p.is_file()]
+            if not jars:
+                return None
+            jars.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            return jars[0]
+    except Exception:
+        return None
+    return None
 
 
 def item_model_line_template(framework: str) -> Path:
@@ -246,6 +309,11 @@ __all__ = [
     "lang_file",
     "model_file",
     "texture_file",
+    # MDK helpers
+    "gradle_properties_file",
+    "build_gradle_file",
+    "detect_neoforge_version",
+
     # item template helpers
     "item_template_file",
     "custom_item_class_template",

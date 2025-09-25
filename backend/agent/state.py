@@ -8,6 +8,12 @@ class AgentState(TypedDict, total=False):
     author: Optional[str]           # frontend may send a single string
     authors: Optional[List[str]]    # normalized list
 
+    # Follow-up chat input + routing
+    followup_user_input: Optional[str]
+    awaiting_user_input: Optional[bool]
+    last_user_response: Optional[str]
+    route_after_respond: Optional[str]
+
     # Planning and control
     plan: Optional[Dict[str, Any]]          # high-level outline
     current_task: Optional[Dict[str, Any]]  # task currently being executed (should mirror task_queue[0])

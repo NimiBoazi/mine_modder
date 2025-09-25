@@ -1,0 +1,73 @@
+{
+  "main_class_file": {
+    "description": "Main mod entrypoint. Registers item/block registries, hooks lifecycle events, and populates Creative Tabs.",
+    "anchors": {
+      "minecraft:ingredients_ACCEPT_BEGIN": "Insert event.accept(...) calls for items in the Ingredients tab.",
+      "minecraft:building_blocks_ACCEPT_BEGIN": "Insert event.accept(...) calls for blocks in the Building Blocks tab.",
+      "minecraft:colored_blocks_ACCEPT_BEGIN": "Insert event.accept(...) calls for blocks in the Colored Blocks tab.",
+      "minecraft:natural_blocks_ACCEPT_BEGIN": "Insert event.accept(...) calls for blocks in the Natural Blocks tab.",
+      "minecraft:functional_blocks_ACCEPT_BEGIN": "Insert event.accept(...) calls for blocks in the Functional Blocks tab.",
+      "minecraft:redstone_blocks_ACCEPT_BEGIN": "Insert event.accept(...) calls for blocks in the Redstone Blocks tab.",
+      "minecraft:tools_and_utilities_ACCEPT_BEGIN": "Insert event.accept(...) calls for items in the Tools & Utilities tab.",
+      "minecraft:combat_ACCEPT_BEGIN": "Insert event.accept(...) calls for items in the Combat tab.",
+      "minecraft:food_and_drinks_ACCEPT_BEGIN": "Insert event.accept(...) calls for items in the Food & Drinks tab.",
+      "minecraft:spawn_eggs_ACCEPT_BEGIN": "Insert event.accept(...) calls for items in the Spawn Eggs tab."
+    },
+    "notes": "Tabs are gated by 'if (event.getTabKey() == CreativeModeTabs.XYZ)'. Keep imports minimal; item logic belongs in custom item classes, not here."
+  },
+
+  "mod_items_file": {
+    "description": "Registers all mod items (DeferredItem) under the mod’s item registry. Set Item.Properties here (e.g., durability, food, stacks), while custom behavior lives in dedicated classes under item.custom.",
+    "anchors": {
+      "EXTRA_IMPORTS_BEGIN": "Optional extra imports (e.g., custom item classes, FoodProperties, attributes).",
+      "ITEM_REGISTRATIONS_BEGIN": "Insert DeferredItem fields, e.g.: public static final DeferredItem<Item> SAPPHIRE = ITEMS.register(\"sapphire\", () -> new Item(new Item.Properties())); You can also construct custom items here, e.g.: () -> new MyCustomItem(new Item.Properties())."
+    },
+    "notes": "Call ModItems.register(eventBus) from the main class constructor. For custom classes, ensure their imports are added in the EXTRA_IMPORTS block."
+  },
+
+  "mod_food_properties_file": {
+    "description": "Holds FoodProperties constants for edible items. Define nutrition, saturation, eatability, speed, and built-in status effects here. No custom item logic—just data used by Item.Properties.food(...).",
+    "anchors": {
+      "EXTRA_IMPORTS_BEGIN": "Optional extra imports (e.g., custom MobEffects or utilities) inserted here.",
+      "FOOD_PROPERTIES_EXAMPLES_BEGIN": "Example FoodProperties declarations (commented) for reference.",
+      "FOOD_PROPERTIES_BEGIN": "Insert real FoodProperties constants, e.g.: public static final FoodProperties MY_SNACK = new FoodProperties.Builder()....build();"
+    },
+    "notes": "Reference these in item registrations with new Item.Properties().food(ModFoodProperties.NAME). For MC 1.21.1, use alwaysEdible() (not alwaysEat()) and fast() for quick consumption. Effects use suppliers: .effect(() -> new MobEffectInstance(MobEffects.REGENERATION, 100, 0), 1.0f)."
+  },
+
+  "mod_item_model_provider_file": {
+    "description": "Generates item model JSONs for the data pack via ItemModelProvider. Fill the registrations section with calls that choose the correct model for each item (basicItem or handheldItem), or delegate to the provided helper registerItemModel methods for deterministic, uniform lines.",
+    "anchors": {
+      "EXTRA_IMPORTS_BEGIN": "Optional extra imports (e.g., additional generators, custom resources).",
+      "ITEM_MODEL_REGISTRATIONS_BEGIN": "Insert model registrations. Prefer: registerItemModel(\"basicItem\"|\"handheldItem\", ModItems.MY_ITEM); For block-as-item (e.g., doors): registerItemModel(\"basicItem\", ModBlocks.MY_BLOCK)."
+    },
+    "notes": "Supported item MODEL_TYPES here are only \"basicItem\" and \"handheldItem\". The helper methods normalize registrations so your agent only needs the model_type plus the registry reference. For custom handhelds, textures are expected at assets/modid/textures/item/<id>.png; basic items use minecraft:item/generated parent. Block helpers (buttonItem, fenceItem, wallItem) are present for completeness but are part of a block pipeline, not the item-only pipeline."
+  },
+
+  "mod_item_tag_provider_file": {
+    "description": "Data generator class that assigns your mod items to tags. Use this to place items into vanilla tags (e.g., ItemTags.SWORDS) or your own ModTags. The output becomes data/modid/tags/items/*.json at runData.",
+    "anchors": {
+      "EXTRA_IMPORTS_BEGIN": "Optional extra imports (e.g., net.minecraft.tags.ItemTags for vanilla tags, net.neoforged.neoforge.common.Tags for NeoForge tags).",
+      "ITEM_TAGS_BEGIN": "Insert tag definitions here. Examples: tag(ItemTags.SWORDS).add(ModItems.MY_SWORD.get()); or tag(ModTags.Items.MY_CATEGORY).add(ModItems.MY_ITEM.get()); You may also mix vanilla items: tag(ModTags.Items.MY_CATEGORY).add(Items.STICK);"
+    },
+    "notes": "For vanilla tags import net.minecraft.tags.ItemTags. For NeoForge common tags import net.neoforged.neoforge.common.Tags and use Tags.Items.* (e.g., Tags.Items.GEMS). Only add items that truly belong in a tag."
+  },
+
+  "mod_recipe_provider_file": {
+    "description": "Generates crafting/smelting/processing recipes via datagen. Fill the example block for templates and the definitions block for your actual mod recipes. Outputs JSON under data/modid/recipes when running runData.",
+    "anchors": {
+      "EXTRA_IMPORTS_BEGIN": "Optional additional imports (e.g., custom serializers, conditions).",
+      "RECIPE_EXAMPLES_BEGIN": "Non-executed examples showing common recipe builder patterns (shaped, shapeless, smelting/blasting, building part helpers).",
+      "RECIPE_DEFINITIONS_BEGIN": "Place real recipe builders here, e.g., ShapedRecipeBuilder, ShapelessRecipeBuilder, oreSmelting/oreBlasting helpers."
+    },
+    "notes": "Use unlockedBy to add advancement criteria so recipes appear in-game. For smelting/blasting multiple inputs, collect them into a List<ItemLike> and call oreSmelting/oreBlasting. Custom IDs can be supplied with .save(recipeOutput, modid + \":my_custom_id\")."
+  },
+
+  "lang_file": {
+    "description": "Localization strings for items/blocks/tooltips. Lives at assets/modid/lang/en_us.json (and other locales).",
+    "anchors": {
+      "LANG_FILE_BEGIN": "Place all JSON key–value localization entries between BEGIN and END."
+    },
+    "notes": "Actual Minecraft lang files must be valid JSON (no comments). Keep keys like \"item.modid.item_id\" and \"tooltip.modid.item_id\". Duplicate keys will override earlier ones."
+  }
+}

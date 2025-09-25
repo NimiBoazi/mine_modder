@@ -49,6 +49,11 @@ def _timestamp() -> str:
     return time.strftime("%Y%m%d_%H%M%S")
 
 
+def _nonce(n:int=6) -> str:
+    import uuid
+    return uuid.uuid4().hex[:max(4, min(12, n))]
+
+
 def _sanitize_token(token: str) -> str:
     """Make a token safe for filesystem names (conservative).
     Lowercase, keep alnum, dash, underscore, and dot; replace others with '-'.
@@ -68,7 +73,7 @@ def create(runs_root: Path | str, modid: str, framework: str, mc_version: str) -
     runs_root = Path(runs_root)
     storage.ensure_dir(runs_root)
 
-    name = f"{_timestamp()}_{_sanitize_token(modid)}_{_sanitize_token(framework)}_{_sanitize_token(mc_version)}"
+    name = f"{_timestamp()}_{_sanitize_token(modid)}_{_sanitize_token(framework)}_{_sanitize_token(mc_version)}_{_nonce()}"
     ws = runs_root / name
     if storage.exists(ws):
         raise FileExistsError(str(ws))

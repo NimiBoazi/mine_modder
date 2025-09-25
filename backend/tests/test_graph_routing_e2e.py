@@ -63,7 +63,7 @@ def test_graph_runs_start_to_finish(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     # Apply monkeypatches
     monkeypatch.setenv("GOOGLE_API_KEY", "stub")  # ensure provider gates don't abort early
     import backend.agent.providers.plan_outline as pov
-    import backend.agent.providers.plan_next_tasks as pnt
+    import backend.agent.providers.gpt5_provider as pnt
     import backend.agent.providers.item_schema as pis
     import backend.agent.nodes.item_subgraph as n_item
 

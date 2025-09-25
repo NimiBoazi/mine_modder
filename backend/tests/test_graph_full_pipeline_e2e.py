@@ -38,7 +38,7 @@ def test_full_graph_runs_with_only_prompt():
 
     # Provide only the user's prompt
     initial_state: Dict[str, Any] = {
-        "user_input": "create a cannabis item and a rolling paper item and a medical cannabis ciggarette. The ciggarette should be made from the cannabis item and the rolling paper item. When consuming the ciggerette make smoke come out and the whole screen's color get a semi transparent red tint for a couple seconds.",
+        "user_input": "create a sapphire item",
     }
 
     # Single invoke; per-node logging is handled by the graph wrappers via MM_PROGRESS_LOG

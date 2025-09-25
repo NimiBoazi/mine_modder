@@ -79,9 +79,7 @@ def item_subgraph(state: AgentState) -> AgentState:
         or ""
     )
     if not task_text:
-        # provide full task dict as last-resort context (not an LLM fallback—just input)
-        import json as _json
-        task_text = _json.dumps(task_obj, ensure_ascii=False)
+        raise RuntimeError("item_subgraph: missing task text in current_task.")
 
     user_prompt = state.get("user_input", "") or ""
 
@@ -99,6 +97,7 @@ def item_subgraph(state: AgentState) -> AgentState:
         "task": task_text,
         "user_prompt": user_prompt,
         "available_objects": available_objects,
+        "modid": modid,
     })
 
     item_id = item_schema["item_id"].strip()
@@ -121,6 +120,16 @@ def item_subgraph(state: AgentState) -> AgentState:
     state["items"] = items
     state["current_item_id"] = item_id
     state["item"] = persisted
+
+    # Emit UI progress immediately after we have the display name
+    try:
+        ui_emit = state.get("_ui_emit")  # injected by graph wrapper
+        display = (persisted.get("display_name") or "").strip()
+        if callable(ui_emit) and display:
+            ui_emit("progress", {"node": "item_subgraph", "message": f"creating {display} custom item", "state": {"workspace_path": state.get("workspace_path")}})
+    except Exception:
+        pass
+
     # Track created objects globally for dependency-aware prompts
     co = list(state.get("created_objects") or [])
     if item_id not in co:
@@ -151,18 +160,19 @@ def item_subgraph(state: AgentState) -> AgentState:
     if build_create_custom_item_class is None:
         raise RuntimeError("Missing provider: create_custom_item_class (build_create_custom_item_class)")
     _ = build_create_custom_item_class().invoke({
-        "item_schema": item_schema,
+        "item_schema": persisted,
         "mod_context": {"base_package": base_package, "modid": modid},
         "framework": framework,
         "workspace": str(ws),
         "items_index": state.get("items") or {},
+        "mc_version": state.get("mc_version"),
     })
 
     # 2) Registry update via wrapper. Wrapper updates ModItems.java; subgraph assumes success.
     if build_create_registry_line is None:
         raise RuntimeError("Missing provider: create_registry_line (build_create_registry_line)")
     _ = build_create_registry_line().invoke({
-        "item_schema": item_schema,
+        "item_schema": persisted,
         "mod_context": {"base_package": base_package, "modid": modid},
         "framework": framework,
         "workspace": str(ws),
@@ -173,7 +183,7 @@ def item_subgraph(state: AgentState) -> AgentState:
         if build_update_creative_tab_item is None:
             raise RuntimeError("Missing provider: update_creative_tab_item (build_update_creative_tab_item)")
         _ = build_update_creative_tab_item().invoke({
-            "item_schema": item_schema,
+            "item_schema": persisted,
             "mod_context": {"base_package": base_package, "modid": modid},
             "framework": framework,
             "workspace": str(ws),
@@ -183,7 +193,7 @@ def item_subgraph(state: AgentState) -> AgentState:
     if build_create_item_model is None:
         raise RuntimeError("Missing provider: create_item_model (build_create_item_model)")
     _ = build_create_item_model().invoke({
-        "item_schema": item_schema,
+        "item_schema": persisted,
         "mod_context": {"base_package": base_package, "modid": modid},
         "framework": framework,
         "workspace": str(ws),
@@ -194,7 +204,7 @@ def item_subgraph(state: AgentState) -> AgentState:
         if build_update_food_properties is None:
             raise RuntimeError("Missing provider: update_food_properties (build_update_food_properties)")
         _ = build_update_food_properties().invoke({
-            "item_schema": item_schema,
+            "item_schema": persisted,
             "mod_context": {"base_package": base_package, "modid": modid},
             "framework": framework,
             "workspace": str(ws),
@@ -206,7 +216,7 @@ def item_subgraph(state: AgentState) -> AgentState:
         if build_create_item_tags is None:
             raise RuntimeError("Missing provider: create_item_tags (build_create_item_tags)")
         _ = build_create_item_tags().invoke({
-            "item_schema": item_schema,
+            "item_schema": persisted,
             "mod_context": {"base_package": base_package, "modid": modid},
             "framework": framework,
             "workspace": str(ws),
@@ -218,7 +228,7 @@ def item_subgraph(state: AgentState) -> AgentState:
         if build_create_item_recipe is None:
             raise RuntimeError("Missing provider: create_item_recipe (build_create_item_recipe)")
         _ = build_create_item_recipe().invoke({
-            "item_schema": item_schema,
+            "item_schema": persisted,
             "mod_context": {"base_package": base_package, "modid": modid},
             "framework": framework,
             "workspace": str(ws),

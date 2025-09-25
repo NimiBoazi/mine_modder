@@ -22,7 +22,7 @@ def make_next_tasks_planner(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
 
     and returns STRICT JSON:
       {
-        "tasks": [ {"type": str, "title": str, "description": str, "params": dict} ]
+        "tasks": [ {"type": str, "title": str, "description": str } ]
       }
 
     Notes:
@@ -36,24 +36,22 @@ def make_next_tasks_planner(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
         "The tasks will be executed iteratively; each task's output may inform subsequent tasks, so order matters.\n\n"
         "Task type explanations (what each does):\n"
         "- add_custom_item: Complete workflow to add a new item to the mod. Steps:\n"
-        "  1) Extract item schema: infer an item specification from the user's request (id, display name, class name, model type, creative tab, tags, tooltip, recipe hints).\n"
-        "  2) Generate custom item class: create the Java class that implements the item's behavior.\n"
-        "  3) Register the item: add a registration entry in the ModItems class so the game recognizes the item.\n"
-        "  4) Creative tab: add the item to the chosen creative inventory tab so it appears in creative mode.\n"
-        "  5) Model data generator: update the item model data generator (ModItemModelProvider) so data generation emits the item's model JSON (e.g., basicItem or handheld).\n"
-        "  6) Tags: update the item tag data generator (ModItemTagProvider) so the item belongs to relevant tags (e.g., minecraft:ingredients).\n"
-        "  7) Recipes: update the recipe data generator (ModRecipeProvider) with crafting/smelting definitions so players can obtain the item.\n"
-        "  8) Language entries: add localization keys for the item name and tooltip (e.g., in en_us.json).\n"
-        "  9) Texture: place or generate a 16x16 item texture under assets/<modid>/textures/item/.\n"
-        "  10) Persist schema: store the item's schema in agent state for future steps and cross-references.\n\n"
+        "  1) Extract item schema later in the item_subgraph (NOT here).\n"
+        "  2) Generate custom item class.\n"
+        "  3) Register the item in ModItems.\n"
+        "  4) Add to creative tab.\n"
+        "  5) Update ModItemModelProvider.\n"
+        "  6) Update ModItemTagProvider.\n"
+        "  7) Update ModRecipeProvider.\n"
+        "  8) Add language entries.\n"
+        "  9) Provide/Generate item texture.\n"
+        "  10) Persist schema in state (done by item_subgraph).\n\n"
         "Return STRICT JSON with the schema:\n"
         "{\n"
         "  \"tasks\": [\n"
         "    {\n"
         "      \"type\": string,       // MUST be one of the allowed types\n"
         "      \"title\": string,      // short actionable label\n"
-        "      \"description\": string,// optional longer explanation (use the explanations above)\n"
-        "      \"params\": object      // optional parameters for the executor\n"
         "    }\n"
         "  ]\n"
         "}\n"
@@ -93,8 +91,6 @@ def make_next_tasks_planner(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
             if t.get("type") not in allowed_types:
                 raise ValueError(f"Task type not allowed: {t.get('type')}")
             t.setdefault("title", t.get("type", "task"))
-            t.setdefault("description", "")
-            t.setdefault("params", {})
 
         # Trim to max_tasks (allow 0 if planner returned none)
         if max_tasks >= 0:

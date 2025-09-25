@@ -1,8 +1,20 @@
+# OS / editor junk
 *.DS_Store
-./backend/rag/store/chroma_db_custom_model
+
+# Python / env
 .venv/
+.env
+*.pytest_cache/
+
+# App runtime / outputs
 runs/
 workspace/
-.env
+
+# RAG store
+backend/rag/store/chroma_db_custom_model/
+
+# Augment
 .augmentignore
-*.pytest_cache/
+
+# Node modules
+frontend/node_modules/

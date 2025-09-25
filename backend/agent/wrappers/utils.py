@@ -6,6 +6,63 @@ from pathlib import Path
 from backend.agent.wrappers.storage import STORAGE as storage
 
 
+def normalize_import_lines(lines: list[str]) -> list[str]:
+    """Normalize a list of Java import entries to full statements.
+    - Accepts entries that may miss the 'import ' prefix and/or trailing ';'
+    - Handles 'static ' prefix by emitting 'import static ...;'
+    - Preserves already-correct lines; removes duplicates while preserving order
+    - Skips empty lines; leaves comment lines (//, /*, */) untouched
+    """
+    seen = set()
+    out: list[str] = []
+    for raw in (lines or []):
+        if raw is None:
+            continue
+        s = str(raw).strip()
+        if not s:
+            continue
+        # Keep pure comment lines as-is
+        if s.startswith("//") or s.startswith("/*") or s.startswith("*/"):
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+            continue
+        # Already an import statement
+        if s.startswith("import "):
+            if not s.endswith(";"):
+                s = s + ";"
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+            continue
+        # Normalize static imports beginning with 'static '
+        if s.startswith("static "):
+            s = "import " + s
+            if not s.endswith(";"):
+                s = s + ";"
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+            continue
+        # Fallback: treat as fully qualified class or package.*
+        s = "import " + s
+        if not s.endswith(";"):
+            s = s + ";"
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+def normalize_import_block(block: str) -> str:
+    """Normalize a multi-line import block to valid Java import statements.
+    See normalize_import_lines for rules.
+    """
+    lines = (block or "").splitlines()
+    norm = normalize_import_lines(lines)
+    return "\n".join(norm).rstrip("\n")
+
+
 def render_placeholders(text: str, ctx: Dict[str, object]) -> str:
     """Simple template replacement for "{{key}}" placeholders.
     - Replaces each {{key}} with str(value) from ctx.
@@ -122,5 +179,7 @@ __all__ = [
     "insert_before_anchor",
     "insert_between_anchors_text",
     "load_optional",
+    "normalize_import_lines",
+    "normalize_import_block",
 ]
 

@@ -26,7 +26,13 @@ def build_gpt5_chat_model() -> Optional["ChatOpenAI"]:
             return None
         if not os.getenv("OPENAI_API_KEY"):
             return None
-        return ChatOpenAI(model="gpt-5")
+        # Enforce timeouts and low retries to surface failures fast (no silent hangs)
+        # Make timeout configurable via OPENAI_REQUEST_TIMEOUT (seconds)
+        try:
+            timeout_s = int(os.getenv("OPENAI_REQUEST_TIMEOUT", "60"))
+        except Exception:
+            timeout_s = 60
+        return ChatOpenAI(model="gpt-5", max_retries=1, timeout=timeout_s)
     except Exception:
         return None
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 from pathlib import Path
 import json
 
@@ -15,6 +15,7 @@ from backend.agent.providers.paths import (
 )
 from backend.agent.wrappers.utils import (
     insert_before_anchor,
+    normalize_import_block,
 )
 
 # Anchors in ModRecipeProvider.java
@@ -31,6 +32,8 @@ def _strip_md_fences(s: str) -> str:
         if s.endswith("```"):
             s = s[:-3]
     return s.strip()
+
+
 
 
 def make_create_item_recipe(model: BaseChatModel) -> Runnable[Dict[str, Any], Dict[str, Any]]:
@@ -83,6 +86,10 @@ def make_create_item_recipe(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
         recipe_tpl_path = item_template_file(framework, "datagen/ModRecipeProvider.java.tmpl")
         recipe_tpl_text = storage.read_text(recipe_tpl_path) if storage.exists(recipe_tpl_path) else ""
 
+        # Derive context for placeholder rendering and guidance
+        modid = (mod_context.get("modid") or "").strip()
+        main_class_name = "".join(p.capitalize() for p in modid.split("_") if p) if modid else "Main"
+
         # Build the LLM prompt
         system = SystemMessage(content=(
             "You are an expert NeoForge Minecraft mod developer.\n"
@@ -90,6 +97,7 @@ def make_create_item_recipe(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
             "Return ONLY a JSON object with two string fields: extra_imports and recipe_definitions.\n"
             "Do not wrap in markdown fences unless the JSON requires escaping.\n"
             "The extra_imports must be valid Java import lines (if any).\n"
+            "When generating recipes, call the .save() method without an explicit ID to use the default inferred recipe name.\n"
             "The recipe_definitions should be the Java builder calls added to the provider (e.g., ShapedRecipeBuilder, ShapelessRecipeBuilder, Smelting, etc.).\n"
         ))
         user = HumanMessage(content=(
@@ -97,7 +105,11 @@ def make_create_item_recipe(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
             f"ITEM_ID = {item_id}\n"
             f"REGISTRY_CONSTANT = {registry_constant}\n"
             f"DESCRIPTION = {description}\n"
-            f"OTHER_ITEM_IDS = {prev_item_ids}\n\n"
+            f"OTHER_ITEM_IDS = {prev_item_ids}\n"
+            f"MAIN_CLASS_NAME = {main_class_name}\n"
+            f"MOD_ID ACCESS = {main_class_name}.MOD_ID\n\n"
+            "IMPORTANT: Do NOT emit template placeholders like {{base_package}} or {{main_class_name}} in your output.\n"
+            f"Use the provided MAIN_CLASS_NAME ({main_class_name}) and {main_class_name}.MOD_ID for identifiers.\n\n"
             "ModRecipeProvider TEMPLATE (for context; observe the anchors):\n"
             + recipe_tpl_text + "\n\n"
             "Anchors to target:\n"
@@ -123,6 +135,7 @@ def make_create_item_recipe(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
             extra_imports = ""
             recipe_defs = ""
 
+
         # Load target file
         ws = Path(ws_str)
         target_path = mod_recipe_provider_file(ws, base_package)
@@ -135,8 +148,8 @@ def make_create_item_recipe(model: BaseChatModel) -> Runnable[Dict[str, Any], Di
 
         # Insert extra imports if any and not already present
         if extra_imports:
-            block = extra_imports.rstrip("\n")
-            if block not in updated:
+            block = normalize_import_block(extra_imports)
+            if block and block not in updated:
                 if EXTRA_IMPORTS_END not in updated:
                     raise RuntimeError(f"Anchor not found: {EXTRA_IMPORTS_END}")
                 updated = insert_before_anchor(updated, EXTRA_IMPORTS_END, block)

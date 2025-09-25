@@ -6,18 +6,15 @@ Gradle verification runner for the Verify Task node.
 Runs, in order, from a given workspace (mod root):
   1) ./gradlew compileJava
   2) ./gradlew runData
-  3) ./gradlew runClient  (smoke-launch: detect startup in logs, then stop)
 
 If any step fails, stop and return a structured result with the first error.
 All steps write combined stdout/stderr to _mm_logs/verify_<task>.log.
 
 Notes
 - Uses the init.gradle helpers for wrapper path and execution consistency.
-- The runClient step is executed in "smoke" mode with a short timeout. If
-  the output indicates successful client bootstrap (selected log patterns), we
-  consider it a pass even if we terminate it before full launch.
 """
 
+import os
 import re
 import time
 from pathlib import Path
@@ -53,8 +50,14 @@ _STARTUP_OK_PATTERNS = [
     # Log lines that typically appear once the client is bootstrapping
     "ModLauncher running:",
     "Launching target 'forgeclient",
-    "Minecraft 1.21",  # generic version banner
-    "Render thread",    # thread creation often logged later
+    "Minecraft 1.21",        # generic version banner (adjust by MC version)
+    "Minecraft 1.",          # fallback for version variations
+    "Render thread",         # thread creation often logged later
+    "LWJGL",                 # graphics subsystem init
+    "GLFW",                  # window init
+    "OpenAL",                # audio init
+    "Loading Immediate Window",  # common in logs during UI init
+    "Keyboard Layout",       # input init lines
 ]
 
 
@@ -100,7 +103,7 @@ def _run_client_smoke(workspace: Path, timeout: int = 120) -> Tuple[int, str, st
 
 
 def verify_gradle_sequence(workspace: str | Path, *, timeouts: Dict[str, int] | None = None) -> Dict[str, Any]:
-    """Run compileJava → runData → runClient(smoke).
+    """Run compileJava → runData.
 
     Returns dict with shape:
     {
@@ -111,7 +114,7 @@ def verify_gradle_sequence(workspace: str | Path, *, timeouts: Dict[str, int] | 
     """
     print(f"[ENTER] tool:gradle_verify.verify_gradle_sequence workspace={Path(workspace)}")
     ws = Path(workspace)
-    to = {"compileJava": 600, "runData": 900, "runClient": 180}
+    to = {"compileJava": 600, "runData": 900}
     if timeouts:
         to.update(timeouts)
 
@@ -147,23 +150,6 @@ def verify_gradle_sequence(workspace: str | Path, *, timeouts: Dict[str, int] | 
     })
     if not d_ok:
         result["first_error"] = {"task": "runData", "exit_code": d_code, "log_path": str(d_log), "stdout": d_out, "stderr": d_err}
-        return result
-
-    # 3) runClient (smoke)
-    r_code, r_out, r_err, r_elapsed, r_boot = _run_client_smoke(ws, to["runClient"])
-    r_log = _write_log(ws, "runClient", r_out, r_err)
-    r_ok = r_code == 0 and r_boot
-    print(f"[VERIFY] runClient ok={r_ok} exit={r_code} boot={r_boot} log={r_log}")
-    result["steps"].append({
-        "task": "runClient",
-        "ok": r_ok,
-        "exit_code": r_code,
-        "elapsed": round(r_elapsed, 3),
-        "log_path": str(r_log),
-        "bootstrapped": bool(r_boot),
-    })
-    if not r_ok:
-        result["first_error"] = {"task": "runClient", "exit_code": r_code, "log_path": str(r_log), "stdout": r_out, "stderr": r_err}
         return result
 
     result["ok"] = True

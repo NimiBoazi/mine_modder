@@ -13,7 +13,7 @@ from backend.agent.providers.paths import (
     mod_food_properties_file,
     item_template_file,
 )
-from backend.agent.wrappers.utils import insert_before_anchor
+from backend.agent.wrappers.utils import insert_before_anchor, normalize_import_block
 
 # Anchors in ModFoodProperties.java
 EXTRA_IMPORTS_END = "// ==MM:EXTRA_IMPORTS_END=="
@@ -124,8 +124,8 @@ def make_update_food_properties(model: BaseChatModel) -> Runnable[Dict[str, Any]
 
         # Insert extra imports if any and not already present
         if extra_imports:
-            block = extra_imports.rstrip("\n")
-            if block not in updated:
+            block = normalize_import_block(extra_imports)
+            if block and block not in updated:
                 if EXTRA_IMPORTS_END not in updated:
                     raise RuntimeError(f"Anchor not found: {EXTRA_IMPORTS_END}")
                 updated = insert_before_anchor(updated, EXTRA_IMPORTS_END, block)

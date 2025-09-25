@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, Any, List
+import json
 from backend.agent.state import AgentState
 from backend.agent.providers.gpt5_provider import build_next_tasks_planner
 
@@ -44,6 +45,17 @@ def next_task_planner_node(state: AgentState) -> AgentState:
     # Queue invariant: current_task == task_queue[0] when tasks exist
     state["task_queue"] = tasks
     state["current_task"] = tasks[0] if tasks else None
+
+    # Explicitly print the task queue before routing continues
+    try:
+        print("[TASK_QUEUE]", json.dumps({
+            "planned": len(tasks),
+            "task_queue": tasks,
+            "current_task": state["current_task"],
+        }, ensure_ascii=False, indent=2))
+    except Exception:
+        # Keep node pure; logging must not break execution
+        pass
 
     state.setdefault("events", []).append({
         "node": "next_task_planner_node",
